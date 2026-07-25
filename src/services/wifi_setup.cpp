@@ -68,6 +68,7 @@ void ensureWifiManager();
 void startLanWebPortal();
 void stopLanWebPortal();
 bool wifiLinkUp();
+void attachSettingsRoutes();
 
 constexpr int kCoordParamLen = 20;
 constexpr char kLatitudeInputAttrs[] =
@@ -76,6 +77,7 @@ constexpr char kLongitudeInputAttrs[] =
     "type=\"number\" step=\"0.000001\" min=\"-180\" max=\"180\"";
 constexpr int kOtaPasswordParamLen =
     static_cast<int>(services::settings::kOtaPasswordMaxLen);
+constexpr int kTextScaleParamLen = 4;
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
                                 kCoordParamLen, kLatitudeInputAttrs);
@@ -108,6 +110,22 @@ char s_clock24_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_clock24("clock_24", "Use 24-hour clock", "T", 2,
                                      s_clock24_checkbox_attrs,
                                      WFM_LABEL_AFTER);
+
+WiFiManagerParameter s_param_after_clock_break("<br/>");
+
+constexpr char kTextScaleAttrs[] =
+    "type=\"range\" min=\"80\" max=\"130\" step=\"5\" "
+    "oninput=\"document.getElementById('text_scale_value').value="
+    "this.value+'%'\"";
+WiFiManagerParameter s_param_text_scale(
+    "text_scale", "Radar text size", "110", kTextScaleParamLen,
+    kTextScaleAttrs);
+WiFiManagerParameter s_param_text_scale_output(
+    "<div style=\"text-align:center;margin-top:-5px\">"
+    "<output id=\"text_scale_value\" for=\"text_scale\"></output></div>"
+    "<script>(function(){var s=document.getElementById('text_scale'),"
+    "o=document.getElementById('text_scale_value');"
+    "if(s&&o)o.value=s.value+'%';})();</script>");
 
 constexpr char kOtaPasswordAttrs[] =
     "type=\"password\" autocomplete=\"new-password\" "
@@ -152,6 +170,10 @@ void refreshPortalParamDefaults() {
                        sizeof(s_clock24_checkbox_attrs),
                        services::settings::use24HourClock());
   s_param_clock24.setValue("T", 2);
+  char text_scale_buf[kTextScaleParamLen + 1];
+  snprintf(text_scale_buf, sizeof(text_scale_buf), "%d",
+           services::settings::textScalePercent());
+  s_param_text_scale.setValue(text_scale_buf, kTextScaleParamLen);
   s_param_ota_password.setValue("", kOtaPasswordParamLen);
 }
 
@@ -165,7 +187,64 @@ void onPortalParamsSaved() {
   services::settings::saveFromPortal(
       s_param_footer.getValue(), s_param_weather.getValue(),
       s_param_fahrenheit.getValue(), s_param_clock24.getValue(),
+      s_param_text_scale.getValue(),
       s_param_ota_password.getValue());
+}
+
+void savePortalParamsFromRequest(WebServer& web) {
+  const String latitude = web.arg("radar_lat");
+  const String longitude = web.arg("radar_lon");
+  const String miles = web.arg("use_miles");
+  const String runways = web.arg("show_runways");
+  const String footer = web.arg("show_footer");
+  const String weather = web.arg("show_weather");
+  const String fahrenheit = web.arg("temp_f");
+  const String clock24 = web.arg("clock_24");
+  const String text_scale = web.arg("text_scale");
+  const String ota_password = web.arg("ota_password");
+
+  if (!services::location::saveFromStrings(latitude.c_str(),
+                                           longitude.c_str())) {
+    Serial.println("Invalid lat/lon in portal — keeping previous location");
+  }
+  ui::radar::saveMilesFromPortal(miles.c_str());
+  ui::radar::saveRunwaysFromPortal(runways.c_str());
+  services::settings::saveFromPortal(
+      footer.c_str(), weather.c_str(), fahrenheit.c_str(), clock24.c_str(),
+      text_scale.c_str(), ota_password.c_str());
+  refreshPortalParamDefaults();
+}
+
+void handleSettingsSaved() {
+  if (!s_wm.server) {
+    return;
+  }
+
+  WebServer& web = *s_wm.server;
+  savePortalParamsFromRequest(web);
+  web.send(
+      200, "text/html",
+      "<!doctype html><html lang='en'><head>"
+      "<meta charset='utf-8'>"
+      "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+      "<meta http-equiv='refresh' content='3;url=/param'>"
+      "<title>Setup saved</title>"
+      "<style>body{font-family:verdana;text-align:center;margin:0;padding:3rem}"
+      ".msg{display:inline-block;min-width:16rem;text-align:left;padding:1.5rem;"
+      "border:1px solid #eee;border-left:5px solid #5cb85c;"
+      "border-radius:.3rem}a{color:#1fa3ec}</style></head><body>"
+      "<div class='msg'><strong>Saved</strong><br>"
+      "<small>Returning to Setup in 3 seconds...</small><br><br>"
+      "<a href='/param'>Return now</a></div></body></html>");
+}
+
+void attachSettingsRoutes() {
+  if (!s_wm.server) {
+    return;
+  }
+  // Register before WiFiManager's built-in /paramsave handler so the custom
+  // confirmation can redirect back to Setup.
+  s_wm.server->on("/paramsave", HTTP_POST, handleSettingsSaved);
 }
 
 void attachPortalParams(WiFiManager& wm) {
@@ -178,6 +257,9 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_weather);
   wm.addParameter(&s_param_fahrenheit);
   wm.addParameter(&s_param_clock24);
+  wm.addParameter(&s_param_after_clock_break);
+  wm.addParameter(&s_param_text_scale);
+  wm.addParameter(&s_param_text_scale_output);
   wm.addParameter(&s_param_ota_password);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
@@ -292,7 +374,7 @@ void ensureWifiManager() {
   s_wm.setTitle("Plane Radar");
   s_wm.setAPCallback(onConfigPortalApStarted);
   attachPortalParams(s_wm);
-  services::ota::configure(s_wm);
+  services::ota::configure(s_wm, attachSettingsRoutes);
   s_wm_configured = true;
 }
 

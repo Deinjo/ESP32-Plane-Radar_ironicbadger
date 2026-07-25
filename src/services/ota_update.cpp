@@ -34,6 +34,7 @@ until the device restarts.</small></p><p><a href="/">Back to settings</a></p>
 )HTML";
 
 WiFiManager* s_manager = nullptr;
+AdditionalRoutesFn s_additional_routes = nullptr;
 bool s_in_progress = false;
 bool s_upload_authenticated = false;
 String s_upload_error;
@@ -167,12 +168,17 @@ void attachRoutes() {
   // Claim WiFiManager's legacy unauthenticated paths before it registers them.
   web->on("/update", HTTP_GET, showFirmwarePage);
   web->on("/u", HTTP_POST, handleUploadDone, handleUploadChunk);
+
+  if (s_additional_routes != nullptr) {
+    s_additional_routes();
+  }
 }
 
 }  // namespace
 
-void configure(WiFiManager& manager) {
+void configure(WiFiManager& manager, AdditionalRoutesFn additional_routes) {
   s_manager = &manager;
+  s_additional_routes = additional_routes;
   manager.setShowInfoUpdate(false);
   manager.setCustomMenuHTML(
       "<form action='/firmware' method='get'><button>Firmware update</button>"

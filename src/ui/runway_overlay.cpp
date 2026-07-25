@@ -7,6 +7,7 @@
 
 #include "data/large_airports.h"
 #include "hardware/display_font.h"
+#include "services/display_settings.h"
 #include "services/radar_location.h"
 #include "ui/radar_range.h"
 #include "ui/radar_theme.h"
@@ -64,10 +65,13 @@ void initRunwayLabelStyle(lgfx::LGFXBase& gfx) {
 }
 
 void applyRunwayLabelStyle(lgfx::LGFXBase& gfx) {
+  const float text_scale =
+      static_cast<float>(services::settings::textScalePercent()) / 100.0f;
   if (s_runway_label_use_vlw) {
-    displayFontSetSmoothSize(gfx, s_runway_label_vlw_size);
+    displayFontSetSmoothSize(gfx, s_runway_label_vlw_size * text_scale);
   } else {
     displayFontSetBitmap(gfx, s_runway_label_gfx);
+    gfx.setTextSize(text_scale);
   }
 }
 

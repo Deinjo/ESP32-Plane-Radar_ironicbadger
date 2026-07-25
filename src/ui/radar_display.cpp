@@ -71,6 +71,14 @@ class DrawScope {
   lgfx::LovyanGFX* prev_;
 };
 
+float configuredTextScale() {
+  return static_cast<float>(services::settings::textScalePercent()) / 100.0f;
+}
+
+void applyBitmapTextScale(lgfx::LGFXBase& gfx) {
+  gfx.setTextSize(configuredTextScale());
+}
+
 int absDiff(int a, int b) { return std::abs(a - b); }
 
 int measureGfxHeight(const lgfx::GFXfont& font) {
@@ -393,9 +401,11 @@ void drawSpeedVector(int cx, int cy, float heading_deg, float track_deg,
 
 void applyTagStyle() {
   if (s_tag_use_vlw) {
-    displayFontSetSmoothSize(*s_draw, s_tag_vlw_size);
+    displayFontSetSmoothSize(*s_draw,
+                             s_tag_vlw_size * configuredTextScale());
   } else {
     displayFontSetBitmap(*s_draw, s_tag_gfx);
+    applyBitmapTextScale(*s_draw);
   }
 }
 
@@ -473,10 +483,11 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
 void applyFooterStyle() {
   initFooterMetrics();
   if (s_footer_use_vlw) {
-    displayFontSetSmoothSize(*s_draw, s_footer_vlw_size);
+    displayFontSetSmoothSize(*s_draw,
+                             s_footer_vlw_size * configuredTextScale());
   } else {
     s_draw->setFont(&lgfx_fonts::Font0);
-    s_draw->setTextSize(1);
+    applyBitmapTextScale(*s_draw);
   }
 }
 
@@ -648,17 +659,21 @@ void drawAircraft() {
 
 void applyCardinalStyle() {
   if (s_cardinal_use_vlw) {
-    displayFontSetSmoothSize(*s_draw, s_cardinal_vlw_size);
+    displayFontSetSmoothSize(*s_draw,
+                             s_cardinal_vlw_size * configuredTextScale());
   } else {
     displayFontSetBitmap(*s_draw, s_cardinal_gfx);
+    applyBitmapTextScale(*s_draw);
   }
 }
 
 void applyScaleStyle() {
   if (s_scale_use_vlw) {
-    displayFontSetSmoothSize(*s_draw, s_scale_vlw_size);
+    displayFontSetSmoothSize(*s_draw,
+                             s_scale_vlw_size * configuredTextScale());
   } else {
     displayFontSetBitmap(*s_draw, s_scale_gfx);
+    applyBitmapTextScale(*s_draw);
   }
 }
 
