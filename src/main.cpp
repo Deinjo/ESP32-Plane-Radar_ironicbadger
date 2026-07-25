@@ -8,7 +8,10 @@
 #include "config.h"
 #include "hardware/display.h"
 #include "services/adsb_client.h"
+#include "services/display_settings.h"
+#include "services/ota_update.h"
 #include "services/radar_location.h"
+#include "services/weather_time.h"
 #include "services/wifi_setup.h"
 #include "ui/radar_display.h"
 #include "ui/radar_range.h"
@@ -26,6 +29,7 @@ void showRadarIfConnected() {
     g_radar_visible = false;
     return;
   }
+  services::weather::begin();
   ui::radarDisplayDraw();
   g_radar_visible = true;
 }
@@ -75,7 +79,9 @@ void setup() {
   }
   services::location::init();
   ui::radar::rangeInit();
+  services::settings::init();
   services::adsb::setPollFn(wifiLoop);
+  services::weather::setPollFn(wifiLoop);
 
   if (wifiSetupConnect()) {
     showRadarIfConnected();
@@ -85,6 +91,11 @@ void setup() {
 void loop() {
   handleBootButton();
   wifiLoop();
+
+  if (services::ota::inProgress()) {
+    delay(10);
+    return;
+  }
 
   if (WiFi.status() != WL_CONNECTED) {
     if (g_radar_visible) {
@@ -112,6 +123,11 @@ void loop() {
     } else if (millis() - g_last_adsb_fetch_ms >= config::kAdsbFetchIntervalMs) {
       g_last_adsb_fetch_ms = millis();
       fetchAndDrawAircraft();
+    } else if (services::weather::refreshIfDue(
+                   services::location::lat(), services::location::lon())) {
+      ui::radarDisplayRefreshAircraft();
+    } else if (services::adsb::enrichOnePending()) {
+      ui::radarDisplayRefreshAircraft();
     }
   }
 

@@ -55,6 +55,25 @@ constexpr float kAdsbFetchRadiusScale = 1.0f;
 /** false = hide aircraft with alt_baro "ground"; true = show them too. */
 constexpr bool kAdsbShowGroundAircraft = false;
 
+// --- Flight enrichment (origin/destination and detailed aircraft type) ---
+constexpr char kFlightDataApiBase[] = "https://api.adsbdb.com/v0/";
+/** One lookup at a time; successful results remain cached for six hours. */
+constexpr unsigned long kFlightLookupMinIntervalMs = 750UL;
+constexpr unsigned long kFlightLookupTimeoutMs = 5000UL;
+constexpr unsigned long kFlightLookupFailureBackoffMs = 30000UL;
+constexpr unsigned long kFlightCacheSuccessMs = 6UL * 60UL * 60UL * 1000UL;
+constexpr unsigned long kFlightCacheMissMs = 10UL * 60UL * 1000UL;
+
+// --- Weather and local time ---
+constexpr char kWeatherApiBase[] = "https://api.open-meteo.com/v1/forecast";
+constexpr unsigned long kWeatherFetchIntervalMs = 15UL * 60UL * 1000UL;
+constexpr unsigned long kWeatherRequestTimeoutMs = 6000UL;
+
+// --- User-facing defaults ---
+constexpr char kOtaUsername[] = "admin";
+/** Change this in the web settings before exposing the device to other users. */
+constexpr char kDefaultOtaPassword[] = "plane-radar";
+
 // --- UI colors (RGB565) — status screens ---
 constexpr uint16_t kColorBlack = 0x0000;
 constexpr uint16_t kColorYellow = 0xFFE0;

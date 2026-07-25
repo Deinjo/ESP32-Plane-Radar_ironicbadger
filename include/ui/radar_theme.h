@@ -62,6 +62,14 @@ constexpr int kBeyondRingScreenMarginPx = 2;
 /** Target cap height (px) for aircraft tags (bold, slightly above scale label). */
 constexpr int kAircraftTagLabelHeightPx = 13;
 
+/** Two-row weather/time overlay. */
+constexpr int kFooterTopY = 194;
+constexpr int kFooterBottomY = 233;
+constexpr int kFooterWeatherY = 197;
+constexpr int kFooterTimeY = 216;
+constexpr int kFooterTimeOnlyY = 205;
+constexpr int kFooterLabelHeightPx = 13;
+
 /** RGB565 palette targets (applied in initPalette). */
 constexpr uint8_t kBgR = 4;
 constexpr uint8_t kBgG = 10;
@@ -88,6 +96,9 @@ constexpr uint8_t kRunwayB = 170;
 constexpr uint8_t kRunwayLabelR = 110;
 constexpr uint8_t kRunwayLabelG = 210;
 constexpr uint8_t kRunwayLabelB = 230;
+constexpr uint8_t kFooterBgR = 3;
+constexpr uint8_t kFooterBgG = 16;
+constexpr uint8_t kFooterBgB = 32;
 
 extern uint16_t kColorBackground;
 extern uint16_t kColorGrid;
@@ -99,5 +110,6 @@ extern uint16_t kColorTagType;
 extern uint16_t kColorTagAltitude;
 extern uint16_t kColorRunway;
 extern uint16_t kColorRunwayLabel;
+extern uint16_t kColorFooterBackground;
 
 }  // namespace ui::radar

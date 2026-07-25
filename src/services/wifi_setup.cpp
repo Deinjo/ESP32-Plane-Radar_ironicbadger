@@ -14,6 +14,8 @@
 #endif
 
 #include "config.h"
+#include "services/display_settings.h"
+#include "services/ota_update.h"
 #include "services/radar_location.h"
 #include "ui/radar_range.h"
 #include "ui/status_screens.h"
@@ -68,14 +70,17 @@ void stopLanWebPortal();
 bool wifiLinkUp();
 
 constexpr int kCoordParamLen = 20;
-constexpr char kCoordInputAttrs[] =
-    " type=\"number\" step=\"0.000001\"";
+constexpr char kLatitudeInputAttrs[] =
+    "type=\"number\" step=\"0.000001\" min=\"-90\" max=\"90\"";
+constexpr char kLongitudeInputAttrs[] =
+    "type=\"number\" step=\"0.000001\" min=\"-180\" max=\"180\"";
+constexpr int kOtaPasswordParamLen =
+    static_cast<int>(services::settings::kOtaPasswordMaxLen);
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
-                                kCoordParamLen, kCoordInputAttrs);
+                                kCoordParamLen, kLatitudeInputAttrs);
 WiFiManagerParameter s_param_lon("radar_lon", "Longitude (deg)", "0",
-                                kCoordParamLen, kCoordInputAttrs);
-
+                                kCoordParamLen, kLongitudeInputAttrs);
 char s_miles_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_miles("use_miles", "Display distances in miles", "T", 2,
                                    s_miles_checkbox_attrs, WFM_LABEL_AFTER);
@@ -84,6 +89,38 @@ char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
                                      s_runways_checkbox_attrs, WFM_LABEL_AFTER);
 
+char s_footer_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_footer("show_footer", "Show weather and clock", "T",
+                                    2, s_footer_checkbox_attrs,
+                                    WFM_LABEL_AFTER);
+
+char s_weather_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_weather(
+    "show_weather", "Show current weather", "T", 2,
+    s_weather_checkbox_attrs, WFM_LABEL_AFTER);
+
+char s_fahrenheit_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_fahrenheit(
+    "temp_f", "Temperature in Fahrenheit", "T", 2,
+    s_fahrenheit_checkbox_attrs, WFM_LABEL_AFTER);
+
+char s_clock24_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_clock24("clock_24", "Use 24-hour clock", "T", 2,
+                                     s_clock24_checkbox_attrs,
+                                     WFM_LABEL_AFTER);
+
+constexpr char kOtaPasswordAttrs[] =
+    "type=\"password\" autocomplete=\"new-password\" "
+    "placeholder=\"leave blank to keep current\"";
+WiFiManagerParameter s_param_ota_password(
+    "ota_password", "OTA password (user: admin)", "", kOtaPasswordParamLen,
+    kOtaPasswordAttrs);
+
+void refreshCheckboxAttrs(char* attrs, size_t attrs_len, bool checked) {
+  snprintf(attrs, attrs_len, "type=\"checkbox\"%s",
+           checked ? " checked" : "");
+}
+
 void refreshPortalParamDefaults() {
   char lat_buf[kCoordParamLen + 1];
   char lon_buf[kCoordParamLen + 1];
@@ -91,12 +128,31 @@ void refreshPortalParamDefaults() {
   snprintf(lon_buf, sizeof(lon_buf), "%.6f", services::location::lon());
   s_param_lat.setValue(lat_buf, kCoordParamLen);
   s_param_lon.setValue(lon_buf, kCoordParamLen);
-  snprintf(s_miles_checkbox_attrs, sizeof(s_miles_checkbox_attrs), "type=\"checkbox\"%s",
-           ui::radar::useMiles() ? " checked" : "");
+  refreshCheckboxAttrs(s_miles_checkbox_attrs,
+                       sizeof(s_miles_checkbox_attrs),
+                       ui::radar::useMiles());
   s_param_miles.setValue("T", 2);
-  snprintf(s_runways_checkbox_attrs, sizeof(s_runways_checkbox_attrs),
-           "type=\"checkbox\"%s", ui::radar::showRunways() ? " checked" : "");
+  refreshCheckboxAttrs(s_runways_checkbox_attrs,
+                       sizeof(s_runways_checkbox_attrs),
+                       ui::radar::showRunways());
   s_param_runways.setValue("T", 2);
+  refreshCheckboxAttrs(s_footer_checkbox_attrs,
+                       sizeof(s_footer_checkbox_attrs),
+                       services::settings::footerEnabled());
+  s_param_footer.setValue("T", 2);
+  refreshCheckboxAttrs(s_weather_checkbox_attrs,
+                       sizeof(s_weather_checkbox_attrs),
+                       services::settings::weatherEnabled());
+  s_param_weather.setValue("T", 2);
+  refreshCheckboxAttrs(s_fahrenheit_checkbox_attrs,
+                       sizeof(s_fahrenheit_checkbox_attrs),
+                       services::settings::temperatureFahrenheit());
+  s_param_fahrenheit.setValue("T", 2);
+  refreshCheckboxAttrs(s_clock24_checkbox_attrs,
+                       sizeof(s_clock24_checkbox_attrs),
+                       services::settings::use24HourClock());
+  s_param_clock24.setValue("T", 2);
+  s_param_ota_password.setValue("", kOtaPasswordParamLen);
 }
 
 void onPortalParamsSaved() {
@@ -106,6 +162,10 @@ void onPortalParamsSaved() {
   }
   ui::radar::saveMilesFromPortal(s_param_miles.getValue());
   ui::radar::saveRunwaysFromPortal(s_param_runways.getValue());
+  services::settings::saveFromPortal(
+      s_param_footer.getValue(), s_param_weather.getValue(),
+      s_param_fahrenheit.getValue(), s_param_clock24.getValue(),
+      s_param_ota_password.getValue());
 }
 
 void attachPortalParams(WiFiManager& wm) {
@@ -114,6 +174,11 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_lon);
   wm.addParameter(&s_param_miles);
   wm.addParameter(&s_param_runways);
+  wm.addParameter(&s_param_footer);
+  wm.addParameter(&s_param_weather);
+  wm.addParameter(&s_param_fahrenheit);
+  wm.addParameter(&s_param_clock24);
+  wm.addParameter(&s_param_ota_password);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 
@@ -191,7 +256,8 @@ void resetWifiCredentials() {
   eraseWifiCredentials();
   services::location::clear();
   ui::radar::unitsReset();
-  Serial.println("WiFi credentials, location, and units cleared");
+  services::settings::clear();
+  Serial.println("WiFi credentials, location, units, and display settings cleared");
 }
 
 void onConfigPortalApStarted(WiFiManager*) {
@@ -223,8 +289,10 @@ void ensureWifiManager() {
   s_wm.setAPStaticIPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
+  s_wm.setTitle("Plane Radar");
   s_wm.setAPCallback(onConfigPortalApStarted);
   attachPortalParams(s_wm);
+  services::ota::configure(s_wm);
   s_wm_configured = true;
 }
 

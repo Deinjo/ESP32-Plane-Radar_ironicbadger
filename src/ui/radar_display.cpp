@@ -5,17 +5,20 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 
 #include "config.h"
 #include "hardware/display.h"
 #include "hardware/display_font.h"
 #include "services/adsb_client.h"
+#include "services/display_settings.h"
 #include "services/radar_location.h"
+#include "services/weather_time.h"
 #include "ui/radar_range.h"
 #include "ui/radar_theme.h"
 #include "ui/runway_overlay.h"
 
-namespace fonts = lgfx::v1::fonts;
+namespace lgfx_fonts = lgfx::v1::fonts;
 
 namespace ui {
 namespace radar {
@@ -30,6 +33,7 @@ uint16_t kColorTagType = 0x5DFF;
 uint16_t kColorTagAltitude = 0xFFE0;
 uint16_t kColorRunway = 0x4D5F;
 uint16_t kColorRunwayLabel = 0x7DFF;
+uint16_t kColorFooterBackground = 0x0084;
 
 }  // namespace radar
 
@@ -41,12 +45,15 @@ bool s_scale_use_vlw = false;
 float s_cardinal_vlw_size = 0.56f;
 float s_scale_vlw_size = 0.50f;
 float s_tag_vlw_size = 0.56f;
-const lgfx::GFXfont* s_cardinal_gfx = &fonts::FreeSansBold12pt7b;
-const lgfx::GFXfont* s_scale_gfx = &fonts::FreeSansBold9pt7b;
-const lgfx::GFXfont* s_tag_gfx = &fonts::FreeSansBold12pt7b;
+const lgfx::GFXfont* s_cardinal_gfx = &lgfx_fonts::FreeSansBold12pt7b;
+const lgfx::GFXfont* s_scale_gfx = &lgfx_fonts::FreeSansBold9pt7b;
+const lgfx::GFXfont* s_tag_gfx = &lgfx_fonts::FreeSansBold12pt7b;
 
 bool s_tag_label_metrics_ready = false;
 bool s_tag_use_vlw = false;
+bool s_footer_metrics_ready = false;
+bool s_footer_use_vlw = false;
+float s_footer_vlw_size = 0.36f;
 
 int s_scale_label_max_w = 0;
 int s_scale_label_h = 0;
@@ -123,16 +130,16 @@ void initLabelMetrics() {
     s_scale_use_vlw = true;
     s_scale_vlw_size = findVlwSizeForHeight(scale_target);
   } else {
-    const lgfx::GFXfont* cardinal_candidates[] = {&fonts::FreeSansBold12pt7b,
-                                                  &fonts::FreeSansBold9pt7b};
+    const lgfx::GFXfont* cardinal_candidates[] = {
+        &lgfx_fonts::FreeSansBold12pt7b, &lgfx_fonts::FreeSansBold9pt7b};
     s_cardinal_gfx =
         pickGfxFontClosest(cardinal_target, cardinal_candidates, 2);
     s_cardinal_use_vlw = false;
 
     const int cardinal_h = measureGfxHeight(*s_cardinal_gfx);
     const int scale_target = cardinal_h - radar::kScaleBelowCardinalPx;
-    const lgfx::GFXfont* scale_candidates[] = {&fonts::FreeSansBold9pt7b,
-                                               &fonts::FreeSansBold12pt7b};
+    const lgfx::GFXfont* scale_candidates[] = {
+        &lgfx_fonts::FreeSansBold9pt7b, &lgfx_fonts::FreeSansBold12pt7b};
     s_scale_gfx = pickGfxFontClosest(scale_target, scale_candidates, 2);
     s_scale_use_vlw = false;
   }
@@ -165,13 +172,25 @@ void initTagLabelMetrics() {
     s_tag_use_vlw = true;
     s_tag_vlw_size = findVlwSizeForHeight(target);
   } else {
-    const lgfx::GFXfont* tag_candidates[] = {&fonts::FreeSansBold12pt7b,
-                                               &fonts::FreeSansBold9pt7b};
+    const lgfx::GFXfont* tag_candidates[] = {
+        &lgfx_fonts::FreeSansBold12pt7b, &lgfx_fonts::FreeSansBold9pt7b};
     s_tag_gfx = pickGfxFontClosest(target, tag_candidates, 2);
     s_tag_use_vlw = false;
   }
 
   s_tag_label_metrics_ready = true;
+}
+
+void initFooterMetrics() {
+  if (s_footer_metrics_ready) {
+    return;
+  }
+  if (displayFontIsSmooth()) {
+    s_footer_use_vlw = true;
+    s_footer_vlw_size =
+        findVlwSizeForHeight(radar::kFooterLabelHeightPx);
+  }
+  s_footer_metrics_ready = true;
 }
 
 void initPalette() {
@@ -197,6 +216,8 @@ void initPalette() {
       tft.color565(radar::kRunwayR, radar::kRunwayG, radar::kRunwayB);
   radar::kColorRunwayLabel = tft.color565(radar::kRunwayLabelR, radar::kRunwayLabelG,
                                           radar::kRunwayLabelB);
+  radar::kColorFooterBackground =
+      tft.color565(radar::kFooterBgR, radar::kFooterBgG, radar::kFooterBgB);
 }
 
 constexpr float kKmPerDeg = 111.0f;
@@ -381,8 +402,10 @@ void applyTagStyle() {
 int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
   applyTagStyle();
   int max_w = 0;
-  if (plane.callsign[0] != '\0') {
-    const int w = s_draw->textWidth(plane.callsign);
+  const char* identity =
+      plane.route[0] != '\0' ? plane.route : plane.callsign;
+  if (identity[0] != '\0') {
+    const int w = s_draw->textWidth(identity);
     if (w > max_w) {
       max_w = w;
     }
@@ -427,9 +450,11 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   }
   ly = std::max(1, std::min(ly, radar::kSize - block_h - 1));
 
-  if (plane.callsign[0] != '\0') {
+  const char* identity =
+      plane.route[0] != '\0' ? plane.route : plane.callsign;
+  if (identity[0] != '\0') {
     s_draw->setTextColor(radar::kColorLabel, radar::kColorBackground);
-    s_draw->drawString(plane.callsign, anchor_x, ly);
+    s_draw->drawString(identity, anchor_x, ly);
   }
   ly += line_h;
 
@@ -443,6 +468,84 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
     s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
     s_draw->drawString(plane.alt, anchor_x, ly);
   }
+}
+
+void applyFooterStyle() {
+  initFooterMetrics();
+  if (s_footer_use_vlw) {
+    displayFontSetSmoothSize(*s_draw, s_footer_vlw_size);
+  } else {
+    s_draw->setFont(&lgfx_fonts::Font0);
+    s_draw->setTextSize(1);
+  }
+}
+
+void fitFooterText(const char* source, char* out, size_t out_len,
+                   int max_width) {
+  if (out_len == 0) {
+    return;
+  }
+  strncpy(out, source != nullptr ? source : "", out_len - 1);
+  out[out_len - 1] = '\0';
+  if (s_draw->textWidth(out) <= max_width) {
+    return;
+  }
+
+  size_t length = strlen(out);
+  while (length > 3) {
+    length -= 1;
+    out[length] = '\0';
+    if (length >= 3) {
+      out[length - 3] = '.';
+      out[length - 2] = '.';
+      out[length - 1] = '.';
+    }
+    if (s_draw->textWidth(out) <= max_width) {
+      return;
+    }
+  }
+}
+
+void drawFooterLine(const char* text, int y, int max_width, uint16_t color) {
+  if (text == nullptr || text[0] == '\0') {
+    return;
+  }
+  applyFooterStyle();
+  char fitted[32] = {};
+  fitFooterText(text, fitted, sizeof(fitted), max_width);
+  s_draw->setTextDatum(textdatum_t::top_center);
+  s_draw->setTextColor(color, radar::kColorFooterBackground);
+  s_draw->drawString(fitted, radar::kCenterX, y);
+}
+
+void drawFooter() {
+  if (!services::settings::footerEnabled()) {
+    return;
+  }
+
+  // The trapezoid follows the narrowing bottom edge of the round panel.
+  s_draw->fillTriangle(28, radar::kFooterTopY, 212, radar::kFooterTopY, 168,
+                       radar::kFooterBottomY,
+                       radar::kColorFooterBackground);
+  s_draw->fillTriangle(28, radar::kFooterTopY, 168, radar::kFooterBottomY, 72,
+                       radar::kFooterBottomY,
+                       radar::kColorFooterBackground);
+  s_draw->drawFastHLine(44, radar::kFooterTopY, 152, radar::kColorGrid);
+
+  if (services::settings::weatherEnabled()) {
+    char weather[32] = {};
+    services::weather::formatWeatherLine(weather, sizeof(weather));
+    drawFooterLine(weather, radar::kFooterWeatherY, 176,
+                   radar::kColorTagType);
+  }
+
+  char date_time[20] = {};
+  services::weather::formatDateTimeLine(date_time, sizeof(date_time));
+  const int time_y = services::settings::weatherEnabled()
+                         ? radar::kFooterTimeY
+                         : radar::kFooterTimeOnlyY;
+  drawFooterLine(date_time, time_y, 128,
+                 radar::kColorTagAltitude);
 }
 
 struct AircraftDrawItem {
@@ -677,6 +780,7 @@ void renderFrame() {
   {
     const DrawScope scope(s_frame);
     drawAircraft();
+    drawFooter();
   }
   s_frame.pushSprite(0, 0);
   tft.setTextDatum(textdatum_t::top_left);
@@ -697,6 +801,7 @@ void radarDisplayDraw() {
   const DrawScope scope(tft);
   drawStaticGrid(tft);
   drawAircraft();
+  drawFooter();
   tft.setTextDatum(textdatum_t::top_left);
 }
 
