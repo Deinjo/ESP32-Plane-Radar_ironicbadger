@@ -16,6 +16,15 @@
 #define PLANE_RADAR_WIFI_FALLBACK_PASS ""
 #endif
 
+// --- Radar center defaults (ECHTE LIEBE ;-) ) 
+#ifndef PLANE_RADAR_DEFAULT_RADAR_LAT
+#define PLANE_RADAR_DEFAULT_RADAR_LAT 51.492605
+#endif
+
+#ifndef PLANE_RADAR_DEFAULT_RADAR_LON
+#define PLANE_RADAR_DEFAULT_RADAR_LON 7.451828
+#endif
+
 
 namespace config {
 
@@ -61,8 +70,8 @@ constexpr bool kDisplayInvert = true;
 constexpr bool kDisplayRgbOrder = true;
 
 // --- Radar center defaults (overridden via WiFi setup portal) ---
-constexpr double kDefaultRadarLat = 52.3676;
-constexpr double kDefaultRadarLon = 4.9041;
+constexpr double kDefaultRadarLat = PLANE_RADAR_DEFAULT_RADAR_LAT;
+constexpr double kDefaultRadarLon = PLANE_RADAR_DEFAULT_RADAR_LON;
 
 /** Poll adsb.fi (API public limit: 1 req/s). */
 constexpr unsigned long kAdsbFetchIntervalMs = 3000;
