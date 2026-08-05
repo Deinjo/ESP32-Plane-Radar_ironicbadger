@@ -118,7 +118,7 @@ constexpr char kTextScaleAttrs[] =
     "oninput=\"document.getElementById('text_scale_value').value="
     "this.value+'%'\"";
 WiFiManagerParameter s_param_text_scale(
-    "text_scale", "Radar text size", "110", kTextScaleParamLen,
+    "text_scale", "Radar text size", "120", kTextScaleParamLen,
     kTextScaleAttrs);
 WiFiManagerParameter s_param_text_scale_output(
     "<div style=\"text-align:center;margin-top:-5px\">"

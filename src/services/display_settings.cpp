@@ -100,8 +100,8 @@ bool parseTextScalePercent(const char* value, int* result) {
 void loadDefaults() {
   copyCleanText(config::kDefaultOtaPassword, s_ota_password,
                 sizeof(s_ota_password));
-  s_footer_enabled = true;
-  s_weather_enabled = true;
+  s_footer_enabled = false;
+  s_weather_enabled = false;
   s_temperature_fahrenheit = false;
   s_use_24_hour_clock = true;
   s_text_scale_percent = kTextScaleDefaultPercent;
@@ -131,8 +131,8 @@ void init() {
     return;
   }
 
-  s_footer_enabled = prefs.getBool(kKeyFooter, true);
-  s_weather_enabled = prefs.getBool(kKeyWeather, true);
+  s_footer_enabled = prefs.getBool(kKeyFooter, false);
+  s_weather_enabled = prefs.getBool(kKeyWeather, false);
   s_temperature_fahrenheit = prefs.getBool(kKeyFahrenheit, false);
   s_use_24_hour_clock = prefs.getBool(kKeyClock24, true);
   s_text_scale_percent = clampTextScalePercent(

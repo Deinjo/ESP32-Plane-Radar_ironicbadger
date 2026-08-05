@@ -7,7 +7,7 @@ namespace services::settings {
 constexpr size_t kOtaPasswordMaxLen = 32;
 constexpr int kTextScaleMinPercent = 80;
 constexpr int kTextScaleMaxPercent = 130;
-constexpr int kTextScaleDefaultPercent = 110;
+constexpr int kTextScaleDefaultPercent = 120;
 
 /** Load persistent display and OTA settings from NVS. */
 void init();
