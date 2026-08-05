@@ -1,8 +1,21 @@
 #pragma once
 
 #include <cstdint>
-
 #include <driver/gpio.h>
+
+// Optional private configuration. The file is intentionally ignored by Git.
+#if __has_include("config_local.h")
+#include "config_local.h"
+#endif
+
+#ifndef PLANE_RADAR_WIFI_FALLBACK_SSID
+#define PLANE_RADAR_WIFI_FALLBACK_SSID ""
+#endif
+
+#ifndef PLANE_RADAR_WIFI_FALLBACK_PASS
+#define PLANE_RADAR_WIFI_FALLBACK_PASS ""
+#endif
+
 
 namespace config {
 
@@ -12,6 +25,9 @@ constexpr char kPortalIp[] = "192.168.4.1";
 /** mDNS host (no ".local" suffix); browser: http://plane-radar.local */
 constexpr char kPortalHostname[] = "plane-radar";
 constexpr char kPortalHostUrl[] = "plane-radar.local";
+/** Optional compiled fallback Wi-Fi credentials. Empty SSID disables fallback. */
+constexpr char kWifiFallbackSSID[] = PLANE_RADAR_WIFI_FALLBACK_SSID;
+constexpr char kWifiFallbackPass[] = PLANE_RADAR_WIFI_FALLBACK_PASS;
 
 /** Per-attempt STA connect wait (ms); retried kWifiConnectAttempts times. */
 constexpr unsigned long kWifiConnectAttemptMs = 15000;

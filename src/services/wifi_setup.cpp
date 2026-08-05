@@ -465,6 +465,18 @@ bool tryConnectWithUi(const String& ssid, const String& pass, bool show_ui) {
   return false;
 }
 
+bool connectFallbackNetwork(bool show_ui) {
+  const String ssid = config::kWifiFallbackSSID;
+
+  if (ssid.length() == 0) {
+    return false;
+  }
+
+  Serial.printf("Trying compiled fallback WiFi: %s\n", ssid.c_str());
+
+  return tryConnectWithUi(ssid, config::kWifiFallbackPass, show_ui);
+}
+
 bool connectSavedNetwork(bool show_ui) {
   if (!storedWifiCredentials()) {
     return false;
@@ -562,7 +574,7 @@ void wifiResetCredentialsAndReboot() {
 bool wifiReconnect() {
   initBootButton();
   Serial.println("WiFi reconnecting...");
-  return connectSavedNetwork(true);
+  return connectSavedNetwork(true) || connectFallbackNetwork(true);
 }
 
 void wifiLoop() {
@@ -622,10 +634,18 @@ bool wifiSetupConnect() {
     return true;
   }
 
+  if (connectFallbackNetwork(true)) {
+    WiFi.setAutoReconnect(true);
+    Serial.printf("Connected with fallback WiFi: %s  IP %s\n",
+                  WiFi.SSID().c_str(),
+                  WiFi.localIP().toString().c_str());
+    return true;
+  }
+
   if (storedWifiCredentials()) {
-    Serial.println("Saved WiFi could not connect — opening setup portal");
+    Serial.println("Saved and fallback WiFi could not connect — opening setup portal");
   } else {
-    Serial.println("No saved WiFi — opening setup portal");
+    Serial.println("No saved or fallback WiFi — opening setup portal");
   }
 
   if (openConfigPortal() && wifiLinkUp()) {

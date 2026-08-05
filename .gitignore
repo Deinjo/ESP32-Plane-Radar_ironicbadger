@@ -4,3 +4,6 @@ release/
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# Lokale WiFi Credentials (nicht committen!)
+include/config_local.h
