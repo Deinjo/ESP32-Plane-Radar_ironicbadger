@@ -52,8 +52,9 @@ Changing coordinates no longer requires a credential reset. The new position is 
 | **Show weather and clock** | Enables/disables the complete bottom footer |
 | **Show current weather** | Shows current condition, temperature, and humidity |
 | **Temperature in Fahrenheit** | Uses °F instead of °C |
+| **TDisplay altitude in metres** | Uses m instead of ft |
 | **Use 24-hour clock** | Uses 24-hour instead of compact 12-hour time |
-| **Radar text size (%)** | Scales radar labels and footer text from 80–130%; default is 110% |
+| **Radar text size (%)** | Scales radar labels and footer text from 80–130%; default is 120% |
 | **OTA password** | Password for firmware uploads; username is `admin` |
 
 After a reset, the device reboots and shows the setup screen immediately (no “Connecting” loop on stale credentials).
