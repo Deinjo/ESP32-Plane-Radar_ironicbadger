@@ -278,6 +278,34 @@ bool isInsideOuterRing(int x, int y) {
   return distSqFromCenter(x, y) <= max_r * max_r;
 }
 
+struct MapCity {
+  const char* label;
+  float lat;
+  float lon;
+};
+
+// First small manually maintained city set for the Ruhr area.
+// Coordinates describe approximate city centres.
+constexpr MapCity kMapCities[] = {
+    {"DO",  51.5142f, 7.4684f},  // Dortmund
+    {"WIT", 51.4333f, 7.3333f},  // Witten
+    {"HA",  51.3671f, 7.4633f},  // Hagen
+    {"BO",  51.4818f, 7.2162f},  // Bochum
+    {"E",   51.4556f, 7.0116f},  // Essen
+
+    {"WAL", 51.6219f, 7.3976f},  // Waltrop
+    {"HER", 51.5369f, 7.2009f},  // Herne
+    {"CAS", 51.5567f, 7.3116f},  // Castrop-Rauxel
+    {"UN",  51.5340f, 7.6890f},  // Unna
+    {"HAM", 51.6739f, 7.8150f},  // Hamm
+    {"RE",  51.6141f, 7.1979f},  // Recklinghausen
+    {"IS",  51.3755f, 7.7028f},  // Iserlohn
+    {"GE",  51.5177f, 7.0857f},  // Gelsenkirchen
+    {"W",   51.2707f, 7.1808f},  // Wuppertal
+};
+
+constexpr size_t kMapCityCount = sizeof(kMapCities) / sizeof(kMapCities[0]);
+
 /** Rim dot from true bearing; always on screen edge (even if target is 50+ km away). */
 bool beyondRingEdgeDotFromLatLon(float lat, float lon, int* out_x, int* out_y) {
   float dx_km = 0.0f;
@@ -707,6 +735,45 @@ void drawScaleLabelWithBackground(const char* text, int x, int y) {
   s_draw->drawString(text, x, y);
 }
 
+void drawCityOverlay() {
+  // Deliberately subtle: cities are only orientation aids and must not
+  // compete with aircraft, runways, labels, or the radar grid.
+  const uint16_t city_color = tft.color565(170, 170, 170);
+
+  s_draw->setFont(&lgfx_fonts::Font0);
+  s_draw->setTextSize(1);
+  s_draw->setTextColor(city_color, radar::kColorBackground);
+
+  for (size_t i = 0; i < kMapCityCount; ++i) {
+    float dx_km = 0.0f;
+    float dy_km = 0.0f;
+    float dist_km = 0.0f;
+
+    offsetKmFromCenter(kMapCities[i].lat, kMapCities[i].lon,
+                       &dx_km, &dy_km, &dist_km);
+
+    // Do not draw cities outside the usable radar area.
+    if (!isInsideOuterRingKm(dist_km)) {
+      continue;
+    }
+
+    int x = 0;
+    int y = 0;
+    latLonToScreen(kMapCities[i].lat, kMapCities[i].lon, &x, &y);
+
+    // A small point marks the actual city coordinate.
+    s_draw->fillCircle(x, y, 2, city_color);
+
+    // Put labels toward the display centre where possible.
+    const bool label_to_right = x < radar::kCenterX;
+    s_draw->setTextDatum(label_to_right ? textdatum_t::middle_left
+                                        : textdatum_t::middle_right);
+
+    const int label_x = label_to_right ? x + 4 : x - 4;
+    s_draw->drawString(kMapCities[i].label, label_x, y);
+  }
+}
+
 void drawGridRing(int cx, int cy, int r, uint16_t color) {
   if (r <= 0) {
     return;
@@ -769,10 +836,14 @@ void drawStaticGrid(Gfx& gfx) {
   const int grid_r = radar::kGridOuterRadius;
 
   gfx.fillScreen(radar::kColorBackground);
+
+  initPalette();
+  drawCityOverlay();
+
   drawRings(cx, cy, grid_r);
   drawCrosshairs(cx, cy, grid_r, radar::kColorGrid);
-  initPalette();
   runway::drawLargeAirportRunways(gfx);
+
   drawCenterDot(cx, cy);
   drawCardinalLabels();
   drawScaleLabel(cx, cy, grid_r);
