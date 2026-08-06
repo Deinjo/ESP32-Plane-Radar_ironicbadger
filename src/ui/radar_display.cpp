@@ -306,6 +306,36 @@ constexpr MapCity kMapCities[] = {
 
 constexpr size_t kMapCityCount = sizeof(kMapCities) / sizeof(kMapCities[0]);
 
+struct MapPoint {
+  float lat;
+  float lon;
+};
+
+struct MapRoad {
+  const MapPoint* points;
+  size_t point_count;
+};
+
+// First manually simplified motorway test line.
+// The exact geometry is intentionally coarse for the 240x240 display.
+constexpr MapPoint kRoadTest[] = {
+    {51.6130f, 7.3510f},
+    {51.5850f, 7.3600f},
+    {51.5560f, 7.3750f},
+    {51.5290f, 7.3970f},
+    {51.5010f, 7.4210f},
+    {51.4740f, 7.4400f},
+    {51.4450f, 7.4550f},
+    {51.4170f, 7.4700f},
+};
+
+constexpr MapRoad kMapRoads[] = {
+    {kRoadA45, sizeof(kRoadA45) / sizeof(kRoadA45[0])},
+};
+
+constexpr size_t kMapRoadCount =
+    sizeof(kMapRoads) / sizeof(kMapRoads[0]);
+
 struct ScreenRect {
   int left;
   int top;
@@ -827,6 +857,43 @@ void drawScaleLabelWithBackground(const char* text, int x, int y) {
   s_draw->drawString(text, x, y);
 }
 
+void drawRoadOverlay() {
+  // Subtle dark-grey motorway layer. It should remain behind cities,
+  // runways and aircraft.
+  const uint16_t road_color = tft.color565(75, 90, 100);
+
+  for (size_t road_index = 0; road_index < kMapRoadCount; ++road_index) {
+    const MapRoad& road = kMapRoads[road_index];
+
+    if (road.point_count < 2) {
+      continue;
+    }
+
+    for (size_t point_index = 1;
+         point_index < road.point_count;
+         ++point_index) {
+      int x0 = 0;
+      int y0 = 0;
+      int x1 = 0;
+      int y1 = 0;
+
+      latLonToScreen(road.points[point_index - 1].lat,
+                     road.points[point_index - 1].lon,
+                     &x0, &y0);
+
+      latLonToScreen(road.points[point_index].lat,
+                     road.points[point_index].lon,
+                     &x1, &y1);
+
+      // Keep line ends within the circular radar area.
+      clipPointToOuterRing(radar::kCenterX, radar::kCenterY, &x0, &y0);
+      clipPointToOuterRing(radar::kCenterX, radar::kCenterY, &x1, &y1);
+
+      s_draw->drawLine(x0, y0, x1, y1, road_color);
+    }
+  }
+}
+
 void drawCityOverlay() {
   // Cities are orientation aids. Aircraft, runway labels and radar UI
   // always have priority over city labels.
@@ -986,6 +1053,7 @@ void drawStaticGrid(Gfx& gfx) {
   initPalette();
   drawRings(cx, cy, grid_r);
   drawCrosshairs(cx, cy, grid_r, radar::kColorGrid);
+  drawRoadOverlay();
   drawCityOverlay();
   runway::drawLargeAirportRunways(gfx);
 
@@ -1015,7 +1083,7 @@ void renderFrame() {
   drawStaticGrid(s_frame);  // opens its own DrawScope(s_frame)
   {
     const DrawScope scope(s_frame);
-    drawAircraft();
+    // drawAircraft(); // TODO wieder einkommentieren
     drawFooter();
   }
   s_frame.pushSprite(0, 0);
@@ -1036,7 +1104,7 @@ void radarDisplayDraw() {
   // Fallback when the sprite can't be allocated: draw straight to the panel.
   const DrawScope scope(tft);
   drawStaticGrid(tft);
-  drawAircraft();
+  // drawAircraft(); // TODO wieder einkommentieren
   drawFooter();
   tft.setTextDatum(textdatum_t::top_left);
 }
