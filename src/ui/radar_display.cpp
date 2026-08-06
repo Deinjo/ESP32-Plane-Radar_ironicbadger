@@ -311,26 +311,65 @@ struct MapPoint {
   float lon;
 };
 
-struct MapRoad {
-  const MapPoint* points;
-  size_t point_count;
+enum class MapRoadKind : uint8_t {
+  kMotorway,
+  kPrimary,
 };
 
-// First manually simplified motorway test line.
-// The exact geometry is intentionally coarse for the 240x240 display.
-constexpr MapPoint kRoadTest[] = {
-    {51.6130f, 7.3510f},
-    {51.5850f, 7.3600f},
-    {51.5560f, 7.3750f},
-    {51.5290f, 7.3970f},
-    {51.5010f, 7.4210f},
-    {51.4740f, 7.4400f},
-    {51.4450f, 7.4550f},
-    {51.4170f, 7.4700f},
+struct MapRoad {
+  const char* id;
+  const MapPoint* points;
+  size_t point_count;
+  MapRoadKind kind;
+};
+
+// A45, simplified orientation centreline.
+// Map data © OpenStreetMap contributors, ODbL.
+constexpr MapPoint kRoadA45[] = {
+    {51.580900f, 7.366000f},
+    {51.565400f, 7.359800f},
+    {51.549100f, 7.358500f},
+    {51.539700f, 7.365200f},
+    {51.532500f, 7.374500f},
+    {51.523000f, 7.379800f},
+    {51.513000f, 7.389700f},
+    {51.503000f, 7.386600f},
+    {51.493000f, 7.386300f},
+    {51.484000f, 7.391600f},
+    {51.476000f, 7.394000f},
+    {51.470000f, 7.400500f},
+    {51.466300f, 7.408800f},
+    {51.462000f, 7.416300f},
+    {51.459000f, 7.419800f},
+    {51.453500f, 7.423200f},
+    {51.447800f, 7.427700f},
+    {51.443000f, 7.440000f},
+    {51.441600f, 7.452000f},
+    {51.441500f, 7.462000f},
+    {51.442300f, 7.470000f},
+    {51.443000f, 7.478000f},
+    {51.443300f, 7.493000f},
+    {51.442000f, 7.503000f},
+    {51.440800f, 7.510000f},
+    {51.439200f, 7.516500f},
+    {51.435000f, 7.525000f},
+    {51.430000f, 7.539000f},
+    {51.425000f, 7.546000f},
+    {51.417000f, 7.551500f},
+    {51.410000f, 7.550000f},
+    {51.402000f, 7.538000f},
+    {51.394000f, 7.528000f},
+    {51.389000f, 7.525700f},
+    {51.379000f, 7.524300f},
+    {51.373000f, 7.521500f},
+    {51.363000f, 7.514400f},
+    {51.353000f, 7.523000f},
+    {51.349000f, 7.526000f},
 };
 
 constexpr MapRoad kMapRoads[] = {
-    {kRoadA45, sizeof(kRoadA45) / sizeof(kRoadA45[0])},
+    {"A45", kRoadA45, sizeof(kRoadA45) / sizeof(kRoadA45[0]),
+    MapRoadKind::kMotorway},
 };
 
 constexpr size_t kMapRoadCount =
@@ -857,13 +896,33 @@ void drawScaleLabelWithBackground(const char* text, int x, int y) {
   s_draw->drawString(text, x, y);
 }
 
+struct RoadDrawStyle {
+  uint16_t color;
+  uint8_t half_width;
+};
+
+RoadDrawStyle roadDrawStyle(MapRoadKind kind) {
+  switch (kind) {
+    case MapRoadKind::kMotorway:
+      // Visible but still behind cities, runways and aircraft.
+      return {tft.color565(105, 115, 125), 0};
+
+    case MapRoadKind::kPrimary:
+      // More subtle than a motorway.
+      return {tft.color565(60, 70, 80), 0};
+  }
+
+  // Defensive fallback; should not be reached with the current enum.
+  return {tft.color565(70, 70, 70), 0};
+}
+
 void drawRoadOverlay() {
   // Subtle dark-grey motorway layer. It should remain behind cities,
   // runways and aircraft.
-  const uint16_t road_color = tft.color565(75, 90, 100);
-
+  
   for (size_t road_index = 0; road_index < kMapRoadCount; ++road_index) {
     const MapRoad& road = kMapRoads[road_index];
+    const RoadDrawStyle style = roadDrawStyle(road.kind);
 
     if (road.point_count < 2) {
       continue;
@@ -889,7 +948,11 @@ void drawRoadOverlay() {
       clipPointToOuterRing(radar::kCenterX, radar::kCenterY, &x0, &y0);
       clipPointToOuterRing(radar::kCenterX, radar::kCenterY, &x1, &y1);
 
-      s_draw->drawLine(x0, y0, x1, y1, road_color);
+      if (style.half_width == 0) {
+        s_draw->drawLine(x0, y0, x1, y1, style.color);
+      } else {
+        s_draw->drawWideLine(x0, y0, x1, y1, style.half_width, style.color);
+      }
     }
   }
 }
@@ -1083,7 +1146,7 @@ void renderFrame() {
   drawStaticGrid(s_frame);  // opens its own DrawScope(s_frame)
   {
     const DrawScope scope(s_frame);
-    // drawAircraft(); // TODO wieder einkommentieren
+    drawAircraft(); 
     drawFooter();
   }
   s_frame.pushSprite(0, 0);
@@ -1104,7 +1167,7 @@ void radarDisplayDraw() {
   // Fallback when the sprite can't be allocated: draw straight to the panel.
   const DrawScope scope(tft);
   drawStaticGrid(tft);
-  // drawAircraft(); // TODO wieder einkommentieren
+  drawAircraft(); 
   drawFooter();
   tft.setTextDatum(textdatum_t::top_left);
 }

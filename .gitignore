@@ -7,3 +7,7 @@ release/
 
 # Lokale WiFi Credentials (nicht committen!)
 include/config_local.h
+
+# Local raw and intermediate map exports
+/tools/input/
+/tools/output/

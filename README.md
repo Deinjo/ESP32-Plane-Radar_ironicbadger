@@ -120,6 +120,10 @@ footer text defaults to 110% and can be adjusted from 80–130% in the same page
 
 The device sends the configured coordinates to adsb.fi and Open-Meteo, and sends active callsign/Mode-S identifiers to ADSBDB.
 
+### Roads
+
+Map data © OpenStreetMap contributors, ODbL.
+
 ## Configuration
 
 Edit **`include/config.h`** for hardware and behavior:
