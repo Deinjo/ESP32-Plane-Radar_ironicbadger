@@ -306,6 +306,98 @@ constexpr MapCity kMapCities[] = {
 
 constexpr size_t kMapCityCount = sizeof(kMapCities) / sizeof(kMapCities[0]);
 
+struct ScreenRect {
+  int left;
+  int top;
+  int right;
+  int bottom;
+};
+
+bool rectsOverlap(const ScreenRect& a, const ScreenRect& b, int margin = 0) {
+  return a.left <= b.right + margin &&
+         a.right + margin >= b.left &&
+         a.top <= b.bottom + margin &&
+         a.bottom + margin >= b.top;
+}
+
+ScreenRect cityLabelBounds(const MapCity& city, int x, int y) {
+  constexpr int kLabelGapPx = 4;
+
+  const int label_w = s_draw->textWidth(city.label);
+  const int label_h = s_draw->fontHeight();
+  const bool label_to_right = x < radar::kCenterX;
+
+  const int left =
+      label_to_right ? x + kLabelGapPx : x - kLabelGapPx - label_w;
+
+  return {
+      left,
+      y - label_h / 2,
+      left + label_w - 1,
+      y + (label_h - 1) / 2,
+  };
+}
+
+bool cityLabelOverlapsFixedRadarUi(const ScreenRect& label) {
+  const int cx = radar::kCenterX;
+  const int cy = radar::kCenterY;
+  const int edge = radar::kSize - 1;
+
+  // Conservative exclusion zones for the centre marker, cardinal labels,
+  // and the range label on the east side.
+  const ScreenRect protected_areas[] = {
+      {cx - 18, cy - 12, cx + 18, cy + 12},  // radar centre
+      {cx - 22, 0, cx + 22, 28},             // N
+      {cx - 22, edge - 28, cx + 22, edge},   // S
+      {0, cy - 18, 30, cy + 18},             // W
+      {edge - 44, cy - 22, edge, cy + 22},   // E + range label
+  };
+
+  for (const ScreenRect& area : protected_areas) {
+    if (rectsOverlap(label, area, 2)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool cityTooCloseToAircraft(int city_x, int city_y) {
+  constexpr int kAircraftClearancePx = 16;
+  constexpr int kAircraftClearanceSq =
+      kAircraftClearancePx * kAircraftClearancePx;
+
+  const size_t aircraft_count = services::adsb::aircraftCount();
+  const services::adsb::Aircraft* planes = services::adsb::aircraftList();
+
+  for (size_t i = 0; i < aircraft_count; ++i) {
+    float dx_km = 0.0f;
+    float dy_km = 0.0f;
+    float dist_km = 0.0f;
+
+    offsetKmFromCenter(planes[i].lat, planes[i].lon,
+                       &dx_km, &dy_km, &dist_km);
+
+    if (!isInsideOuterRingKm(dist_km)) {
+      continue;
+    }
+
+    int aircraft_x = 0;
+    int aircraft_y = 0;
+    latLonToScreen(planes[i].lat, planes[i].lon,
+                   &aircraft_x, &aircraft_y);
+
+    const int dx = city_x - aircraft_x;
+    const int dy = city_y - aircraft_y;
+
+    if (dx * dx + dy * dy <= kAircraftClearanceSq) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 /** Rim dot from true bearing; always on screen edge (even if target is 50+ km away). */
 bool beyondRingEdgeDotFromLatLon(float lat, float lon, int* out_x, int* out_y) {
   float dx_km = 0.0f;
@@ -736,13 +828,16 @@ void drawScaleLabelWithBackground(const char* text, int x, int y) {
 }
 
 void drawCityOverlay() {
-  // Deliberately subtle: cities are only orientation aids and must not
-  // compete with aircraft, runways, labels, or the radar grid.
+  // Cities are orientation aids. Aircraft, runway labels and radar UI
+  // always have priority over city labels.
   const uint16_t city_color = tft.color565(170, 170, 170);
 
   s_draw->setFont(&lgfx_fonts::Font0);
   s_draw->setTextSize(1);
   s_draw->setTextColor(city_color, radar::kColorBackground);
+
+  ScreenRect accepted_labels[kMapCityCount];
+  size_t accepted_label_count = 0;
 
   for (size_t i = 0; i < kMapCityCount; ++i) {
     float dx_km = 0.0f;
@@ -752,7 +847,6 @@ void drawCityOverlay() {
     offsetKmFromCenter(kMapCities[i].lat, kMapCities[i].lon,
                        &dx_km, &dy_km, &dist_km);
 
-    // Do not draw cities outside the usable radar area.
     if (!isInsideOuterRingKm(dist_km)) {
       continue;
     }
@@ -761,16 +855,35 @@ void drawCityOverlay() {
     int y = 0;
     latLonToScreen(kMapCities[i].lat, kMapCities[i].lon, &x, &y);
 
-    // A small point marks the actual city coordinate.
+    const ScreenRect label = cityLabelBounds(kMapCities[i], x, y);
+
+    bool hidden = cityLabelOverlapsFixedRadarUi(label) ||
+                  cityTooCloseToAircraft(x, y);
+
+    // Earlier entries in kMapCities have higher display priority.
+    for (size_t accepted = 0;
+         !hidden && accepted < accepted_label_count;
+         ++accepted) {
+      if (rectsOverlap(label, accepted_labels[accepted], 2)) {
+        hidden = true;
+      }
+    }
+
+    if (hidden) {
+      continue;
+    }
+
     s_draw->fillCircle(x, y, 2, city_color);
 
-    // Put labels toward the display centre where possible.
     const bool label_to_right = x < radar::kCenterX;
     s_draw->setTextDatum(label_to_right ? textdatum_t::middle_left
                                         : textdatum_t::middle_right);
 
     const int label_x = label_to_right ? x + 4 : x - 4;
     s_draw->drawString(kMapCities[i].label, label_x, y);
+
+    accepted_labels[accepted_label_count] = label;
+    ++accepted_label_count;
   }
 }
 
