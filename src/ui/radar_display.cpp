@@ -778,10 +778,43 @@ void drawGridRing(int cx, int cy, int r, uint16_t color) {
   if (r <= 0) {
     return;
   }
+
+  // Dash and gap lengths are measured in display pixels, not degrees.
+  // This keeps the visual dash size consistent for all ring diameters.
+  constexpr float kDashLengthPx = 8.0f;
+  constexpr float kGapLengthPx = 8.0f;
+  constexpr float kDashPeriodPx = kDashLengthPx + kGapLengthPx;
+
+  constexpr float kTwoPi = 6.28318530718f;
+  constexpr float kSampleSpacingPx = 0.5f;
+
   const int thickness =
       std::max(1, static_cast<int>(radar::kGridStrokeHalfWidth * 2.0f));
-  for (int i = 0; i < thickness && r - i > 0; ++i) {
-    s_draw->drawCircle(cx, cy, r - i, color);
+
+  // Use a small angular step which corresponds to about half a pixel
+  // on this ring. Larger rings therefore get more samples.
+  const float angle_step = kSampleSpacingPx / static_cast<float>(r);
+
+  for (float angle = 0.0f; angle < kTwoPi; angle += angle_step) {
+    // Arc length from the 3-o'clock position, measured in pixels.
+    const float arc_px = angle * static_cast<float>(r);
+    const float dash_phase = fmodf(arc_px, kDashPeriodPx);
+
+    // Skip the gap portion of each dash period.
+    if (dash_phase >= kDashLengthPx) {
+      continue;
+    }
+
+    const float cos_angle = cosf(angle);
+    const float sin_angle = sinf(angle);
+
+    for (int i = 0; i < thickness && r - i > 0; ++i) {
+      const int rr = r - i;
+      const int x = cx + static_cast<int>(lroundf(cos_angle * rr));
+      const int y = cy + static_cast<int>(lroundf(sin_angle * rr));
+
+      s_draw->drawPixel(x, y, color);
+    }
   }
 }
 
@@ -838,10 +871,9 @@ void drawStaticGrid(Gfx& gfx) {
   gfx.fillScreen(radar::kColorBackground);
 
   initPalette();
-  drawCityOverlay();
-
   drawRings(cx, cy, grid_r);
   drawCrosshairs(cx, cy, grid_r, radar::kColorGrid);
+  drawCityOverlay();
   runway::drawLargeAirportRunways(gfx);
 
   drawCenterDot(cx, cy);
