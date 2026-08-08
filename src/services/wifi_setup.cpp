@@ -56,6 +56,35 @@ void initBootButton() {
 
 namespace {
 
+constexpr char kPortalGlobalStyle[] =
+    "<style>"
+    "*{box-sizing:border-box}"
+    "body{margin:0;padding:24px;background:#0d151e;color:#d7e0e9;"
+    "font-family:Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.45}"
+    "body>div,body>form,form{max-width:760px;margin:0 auto}"
+    "form{padding:24px;background:#141f2a;border:1px solid #2a3a49;"
+    "border-radius:12px;box-shadow:0 12px 32px #0005}"
+    ".c{float:none!important;clear:both!important;width:100%!important;"
+    "box-sizing:border-box!important}"
+    "h1,h2,h3{color:#edf3f8;font-weight:600;letter-spacing:.01em}"
+    "h1{font-size:1.35rem;margin:0 0 1.2rem}"
+    "h2{font-size:1.05rem;margin:1.5rem 0 .6rem}"
+    "h3{font-size:1rem;margin:1.5rem 0 .7rem!important;padding:10px 12px;"
+    "background:#1a2937;border-left:3px solid #62899d;border-radius:6px}"
+    "label{color:#b8c6d3}"
+    "input[type=text],input[type=password],input[type=number],select{"
+    "width:100%;padding:9px 10px;background:#0f1923;color:#e4edf4;"
+    "border:1px solid #35495b;border-radius:6px;outline:none}"
+    "input[type=color]{width:52px;height:32px;padding:3px;background:#0f1923;"
+    "border:1px solid #526577;border-radius:5px}"
+    "input[type=range]{accent-color:#7098aa}input[type=checkbox]{accent-color:#7098aa}"
+    "button,input[type=submit]{padding:8px 13px;background:#38596b;color:#eef5f8;"
+    "border:1px solid #5e8191;border-radius:6px;font:inherit;cursor:pointer}"
+    "button:hover,input[type=submit]:hover{background:#486f80;border-color:#83a8b7}"
+    "a{color:#8eb5c5}small{color:#9aaabd}"
+    "@media(max-width:520px){body{padding:12px}form{padding:16px}}"
+    "</style>";
+
 /** Separate from planeradar prefs (rangeInit) to avoid NVS handle conflicts. */
 constexpr char kWifiPrefsNamespace[] = "wifi";
 constexpr char kPrefsForcePortalKey[] = "portal";
@@ -215,6 +244,7 @@ WiFiManagerParameter s_param_color_reset_controls(
     "h1,h2,h3{color:#edf3f8;font-weight:600;letter-spacing:.01em;}"
     "h1{font-size:1.35rem;margin:0 0 1.2rem;}"
     "h2{font-size:1.05rem;margin:1.5rem 0 .6rem;}"
+    ".c{float:none!important;clear:both!important;width:100%!important;}"
     "h3{clear:both!important;width:100%!important;font-size:1rem;"
     "margin:1.5rem 0 .7rem!important;padding:10px 12px;"
     "background:#1a2937;border-left:3px solid #62899d;border-radius:6px;}"
@@ -501,10 +531,11 @@ void handleSettingsSaved() {
       "<meta name='viewport' content='width=device-width,initial-scale=1'>"
       "<meta http-equiv='refresh' content='3;url=/param'>"
       "<title>Setup saved</title>"
-      "<style>body{font-family:verdana;text-align:center;margin:0;padding:3rem}"
-      ".msg{display:inline-block;min-width:16rem;text-align:left;padding:1.5rem;"
-      "border:1px solid #eee;border-left:5px solid #5cb85c;"
-      "border-radius:.3rem}a{color:#1fa3ec}</style></head><body>"
+       "<style>body{font-family:Segoe UI,Arial,sans-serif;text-align:center;"
+       "background:#0d151e;color:#d7e0e9;margin:0;padding:3rem}"
+       ".msg{display:inline-block;min-width:16rem;text-align:left;padding:1.5rem;"
+       "background:#141f2a;border:1px solid #2a3a49;border-left:4px solid #62899d;"
+       "border-radius:12px;box-shadow:0 12px 32px #0005}a{color:#8eb5c5}</style></head><body>"
       "<div class='msg'><strong>Saved</strong><br>"
       "<small>Returning to Setup in 3 seconds...</small><br><br>"
       "<a href='/param'>Return now</a></div></body></html>");
@@ -673,6 +704,7 @@ void ensureWifiManager() {
   s_wm.setAPStaticIPConfig(IPAddress(192, 168, 4, 1), IPAddress(192, 168, 4, 1),
                            IPAddress(255, 255, 255, 0));
   s_wm.setHostname(config::kPortalHostname);
+  s_wm.setCustomHeadElement(kPortalGlobalStyle);
   s_wm.setTitle("Plane Radar");
   s_wm.setAPCallback(onConfigPortalApStarted);
   attachPortalParams(s_wm);

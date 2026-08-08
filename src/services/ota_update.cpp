@@ -15,12 +15,13 @@ constexpr char kFirmwarePage[] PROGMEM = R"HTML(
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Plane Radar firmware</title>
 <style>
-body{font-family:system-ui,sans-serif;background:#07101f;color:#eef6ff;margin:0}
-main{max-width:34rem;margin:3rem auto;padding:1.5rem}
-.card{background:#101d31;border:1px solid #274464;border-radius:14px;padding:1.5rem}
-input,button{box-sizing:border-box;width:100%;margin-top:1rem;padding:.8rem}
-button{background:#2b8aef;color:white;border:0;border-radius:8px;font-weight:700}
-small{color:#a9bad0}a{color:#73b7ff}
+ body{font-family:Segoe UI,Arial,sans-serif;background:#0d151e;color:#d7e0e9;margin:0}
+ main{max-width:34rem;margin:3rem auto;padding:1.5rem}
+ .card{background:#141f2a;border:1px solid #2a3a49;border-radius:12px;padding:1.5rem;box-shadow:0 12px 32px #0005}
+ input,button{box-sizing:border-box;width:100%;margin-top:1rem;padding:.8rem;background:#0f1923;color:#e4edf4;border:1px solid #35495b;border-radius:6px}
+ button{background:#38596b;color:#eef5f8;border-color:#5e8191;font:inherit;font-weight:600;cursor:pointer}
+ button:hover{background:#486f80;border-color:#83a8b7}
+ small{color:#9aaabd}a{color:#8eb5c5}
 </style></head><body><main><div class="card">
 <h1>Firmware update</h1>
 <p>Upload the OTA application image ending in <strong>-ota.bin</strong>
