@@ -21,7 +21,9 @@ constexpr char kFirmwarePage[] PROGMEM = R"HTML(
  input,button{box-sizing:border-box;width:100%;margin-top:1rem;padding:.8rem;background:#0f1923;color:#e4edf4;border:1px solid #35495b;border-radius:6px}
  button{background:#38596b;color:#eef5f8;border-color:#5e8191;font:inherit;font-weight:600;cursor:pointer}
  button:hover{background:#486f80;border-color:#83a8b7}
- small{color:#9aaabd}a{color:#8eb5c5}
+  small{color:#9aaabd}a{color:#8eb5c5}
+  .home-link{display:inline-block;padding:.8rem 1rem;background:#38596b;color:#eef5f8;border:1px solid #5e8191;border-radius:6px;text-decoration:none;font-weight:600}
+  .home-link:hover{background:#486f80;border-color:#83a8b7}
 </style></head><body><main><div class="card">
 <h1>Firmware update</h1>
 <p>Upload the OTA application image ending in <strong>-ota.bin</strong>
@@ -30,7 +32,7 @@ or PlatformIO's <strong>firmware.bin</strong>.</p>
 <input type="file" name="firmware" accept=".bin,application/octet-stream" required>
 <button type="submit">Install and restart</button></form>
 <p><small>Do not upload the merged/full flash image here. Keep power connected
-until the device restarts.</small></p><p><a href="/">Back to settings</a></p>
+ until the device restarts.</small></p><p><a class="home-link" href="/">Home</a></p>
 </div></main></body></html>
 )HTML";
 

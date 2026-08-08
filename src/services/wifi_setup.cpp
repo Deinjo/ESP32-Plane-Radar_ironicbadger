@@ -87,8 +87,17 @@ constexpr char kPortalGlobalStyle[] =
     "border:1px solid #5e8191;border-radius:6px;font:inherit;cursor:pointer}"
     "button:hover,input[type=submit]:hover{background:#486f80;border-color:#83a8b7}"
     "a{color:#8eb5c5}small{color:#9aaabd}"
+    ".home-link{display:inline-block;margin:0 0 16px;padding:8px 13px;"
+    "background:#38596b;color:#eef5f8;border:1px solid #5e8191;"
+    "border-radius:6px;text-decoration:none;font-weight:600}"
+    ".home-link:hover{background:#486f80;border-color:#83a8b7}"
     "@media(max-width:520px){body{padding:12px}form{padding:16px}}"
-    "</style>";
+    "</style>"
+    "<script>document.addEventListener('DOMContentLoaded',function(){"
+    "if(location.pathname==='/'||!document.querySelector('.wrap'))return;"
+    "var a=document.createElement('a');a.href='/';a.textContent='Home';"
+    "a.className='home-link';document.querySelector('.wrap').prepend(a);"
+    "});</script>";
 
 /** Separate from planeradar prefs (rangeInit) to avoid NVS handle conflicts. */
 constexpr char kWifiPrefsNamespace[] = "wifi";
@@ -545,10 +554,13 @@ void handleSettingsSaved() {
        "background:#0d151e;color:#d7e0e9;margin:0;padding:3rem}"
        ".msg{display:inline-block;min-width:16rem;text-align:left;padding:1.5rem;"
        "background:#141f2a;border:1px solid #2a3a49;border-left:4px solid #62899d;"
-       "border-radius:12px;box-shadow:0 12px 32px #0005}a{color:#8eb5c5}</style></head><body>"
-      "<div class='msg'><strong>Saved</strong><br>"
-      "<small>Returning to Setup in 3 seconds...</small><br><br>"
-      "<a href='/param'>Return now</a></div></body></html>");
+       "border-radius:12px;box-shadow:0 12px 32px #0005}a{color:#8eb5c5}"
+       ".home-link{display:inline-block;margin:0 0 16px;padding:8px 13px;"
+       "background:#38596b;color:#eef5f8;border:1px solid #5e8191;"
+       "border-radius:6px;text-decoration:none;font-weight:600}</style></head><body>"
+       "<div class='msg'><strong>Saved</strong><br>"
+       "<small>Returning to Setup in 3 seconds...</small><br><br>"
+       "<a class='home-link' href='/'>Home</a></div></body></html>");
 }
 
 void attachSettingsRoutes() {
