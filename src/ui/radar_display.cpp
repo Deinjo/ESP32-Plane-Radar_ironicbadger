@@ -610,6 +610,10 @@ int measureTagBlockWidth(const services::adsb::Aircraft& plane) {
 }
 
 void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
+  if (!services::settings::visible(
+          services::settings::VisibilityId::kLabel)) {
+    return;
+  }
   initTagLabelMetrics();
   applyTagStyle();
 
@@ -642,13 +646,17 @@ void drawAircraftTag(int x, int y, const services::adsb::Aircraft& plane) {
   }
   ly += line_h;
 
-  if (plane.type[0] != '\0') {
+  if (plane.type[0] != '\0' &&
+      services::settings::visible(
+          services::settings::VisibilityId::kTagType)) {
     s_draw->setTextColor(radar::kColorTagType, radar::kColorBackground);
     s_draw->drawString(plane.type, anchor_x, ly);
   }
   ly += line_h;
 
-  if (plane.alt[0] != '\0') {
+  if (plane.alt[0] != '\0' &&
+      services::settings::visible(
+          services::settings::VisibilityId::kTagAltitude)) {
     s_draw->setTextColor(radar::kColorTagAltitude, radar::kColorBackground);
     s_draw->drawString(plane.alt, anchor_x, ly);
   }
@@ -813,7 +821,10 @@ void drawAircraft() {
 
   sortBeyondDotsFarFirst(dots, dot_count);
   for (size_t d = 0; d < dot_count; ++d) {
-    drawBeyondRingDot(dots[d].x, dots[d].y);
+    if (services::settings::visible(
+            services::settings::VisibilityId::kAircraft)) {
+      drawBeyondRingDot(dots[d].x, dots[d].y);
+    }
   }
 
   sortDrawItemsFarFirst(items, draw_count);
@@ -821,9 +832,15 @@ void drawAircraft() {
     const size_t i = items[d].index;
     const int x = items[d].x;
     const int y = items[d].y;
-    drawSpeedVector(x, y, planes[i].nose_deg, planes[i].track_deg,
-                    planes[i].gs_knots, radar::kColorTrackVector);
-    drawHeadingTriangle(x, y, planes[i].nose_deg, radar::kColorAircraft);
+    if (services::settings::visible(
+            services::settings::VisibilityId::kTrackVector)) {
+      drawSpeedVector(x, y, planes[i].nose_deg, planes[i].track_deg,
+                      planes[i].gs_knots, radar::kColorTrackVector);
+    }
+    if (services::settings::visible(
+            services::settings::VisibilityId::kAircraft)) {
+      drawHeadingTriangle(x, y, planes[i].nose_deg, radar::kColorAircraft);
+    }
   }
   for (size_t d = 0; d < draw_count; ++d) {
     const size_t i = items[d].index;
@@ -899,7 +916,10 @@ RoadDrawStyle roadDrawStyle(MapRoadKind kind) {
 void drawRoadOverlay() {
   // Subtle dark-grey motorway layer. It should remain behind cities,
   // runways and aircraft.
-  
+  if (!services::settings::visible(services::settings::VisibilityId::kRoad)) {
+    return;
+  }
+
   for (size_t road_index = 0; road_index < kMapRoadCount; ++road_index) {
     const MapRoad& road = kMapRoads[road_index];
     const RoadDrawStyle style = roadDrawStyle(road.kind);
@@ -940,6 +960,10 @@ void drawRoadOverlay() {
 void drawCityOverlay() {
   // Cities are orientation aids. Aircraft, runway labels and radar UI
   // always have priority over city labels.
+  if (!services::settings::visible(services::settings::VisibilityId::kCity)) {
+    return;
+  }
+
   const uint16_t city_color =
       configuredColor(services::settings::ColorId::kCity);
 
@@ -1043,6 +1067,9 @@ void drawGridRing(int cx, int cy, int r, uint16_t color) {
 }
 
 void drawRings(int cx, int cy, int outer_radius) {
+  if (!services::settings::visible(services::settings::VisibilityId::kGrid)) {
+    return;
+  }
   for (int i = 1; i <= radar::kRingCount; ++i) {
     const int r = (outer_radius * i) / radar::kRingCount;
     drawGridRing(cx, cy, r, radar::kColorGrid);
@@ -1050,6 +1077,9 @@ void drawRings(int cx, int cy, int outer_radius) {
 }
 
 void drawCrosshairs(int cx, int cy, int radius, uint16_t color) {
+  if (!services::settings::visible(services::settings::VisibilityId::kGrid)) {
+    return;
+  }
   s_draw->drawWideLine(cx, cy - radius, cx, cy + radius,
                        radar::kGridStrokeHalfWidth, color);
   s_draw->drawWideLine(cx - radius, cy, cx + radius, cy,
@@ -1057,10 +1087,16 @@ void drawCrosshairs(int cx, int cy, int radius, uint16_t color) {
 }
 
 void drawCenterDot(int cx, int cy) {
+  if (!services::settings::visible(services::settings::VisibilityId::kCenter)) {
+    return;
+  }
   s_draw->fillSmoothCircle(cx, cy, radar::kCenterDotRadius, radar::kColorCenter);
 }
 
 void drawCardinalLabels() {
+  if (!services::settings::visible(services::settings::VisibilityId::kLabel)) {
+    return;
+  }
   const int cx = radar::kCenterX;
   const int cy = radar::kCenterY;
   const int edge = radar::kSize - 1;
@@ -1077,6 +1113,9 @@ int scaleLabelAnchorX(int cx, int outer_radius) {
 }
 
 void drawScaleLabel(int cx, int cy, int outer_radius) {
+  if (!services::settings::visible(services::settings::VisibilityId::kLabel)) {
+    return;
+  }
   char scale_label[12];
   radar::formatCurrentRing3Label(scale_label, sizeof(scale_label));
   drawScaleLabelWithBackground(scale_label,

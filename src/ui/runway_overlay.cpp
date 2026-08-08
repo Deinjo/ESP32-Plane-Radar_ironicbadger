@@ -256,7 +256,11 @@ void drawAirportLabel(lgfx::LGFXBase& gfx,
 }  // namespace
 
 void drawLargeAirportRunways(lgfx::LGFXBase& gfx) {
-  if (!radar::showRunways()) {
+  const bool show_runways = services::settings::visible(
+      services::settings::VisibilityId::kRunway);
+  const bool show_labels = services::settings::visible(
+      services::settings::VisibilityId::kRunwayLabel);
+  if (!radar::showRunways() || (!show_runways && !show_labels)) {
     return;
   }
   displayFontEnsureLoaded(gfx);
@@ -285,10 +289,11 @@ void drawLargeAirportRunways(lgfx::LGFXBase& gfx) {
     if (!s_in_range[ap_idx]) {
       continue;
     }
-    if (!drawRunwayLine(gfx, rw)) {
+    if (!show_runways || !drawRunwayLine(gfx, rw)) {
       continue;
     }
-    if (!s_label_pending[ap_idx] && label_count < kMaxAirportLabels) {
+    if (show_labels && !s_label_pending[ap_idx] &&
+        label_count < kMaxAirportLabels) {
       s_label_pending[ap_idx] = true;
       label_airports[label_count++] = ap_idx;
     }

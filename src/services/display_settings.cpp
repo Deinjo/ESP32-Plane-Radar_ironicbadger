@@ -32,6 +32,17 @@ constexpr char kKeyColorRunwayLabel[] = "colRwLbl";
 constexpr char kKeyColorFooter[] = "colFoot";
 constexpr char kKeyColorRoad[] = "colRoad";
 constexpr char kKeyColorCity[] = "colCity";
+constexpr char kKeyShowGrid[] = "showGrid";
+constexpr char kKeyShowCenter[] = "showCtr";
+constexpr char kKeyShowLabel[] = "showLbl";
+constexpr char kKeyShowAircraft[] = "showAc";
+constexpr char kKeyShowTrack[] = "showTrk";
+constexpr char kKeyShowTagType[] = "showTyp";
+constexpr char kKeyShowTagAltitude[] = "showAlt";
+constexpr char kKeyShowRunway[] = "showRw";
+constexpr char kKeyShowRunwayLabel[] = "showRwLbl";
+constexpr char kKeyShowRoad[] = "showRoad";
+constexpr char kKeyShowCity[] = "showCity";
 
 char s_ota_password[kOtaPasswordMaxLen + 1] = {};
 bool s_footer_enabled = true;
@@ -52,6 +63,9 @@ constexpr uint32_t kDefaultColors[] = {
     0xFF00FFu, 0xFFC800u, 0x5AC8FFu, 0x3896AAu, 0x6ED2E6u,
     0x031020u, 0x69737Du, 0xAAAAAAu,
 };
+
+bool s_visibility[] = {true, true, true, true, true, true,
+                      true, true, true, true, true};
 
 bool checkboxChecked(const char* value) {
   if (value == nullptr || value[0] == '\0') {
@@ -159,6 +173,9 @@ void loadDefaults() {
   s_use_24_hour_clock = true;
   s_text_scale_percent = kTextScaleDefaultPercent;
   std::memcpy(s_colors, kDefaultColors, sizeof(s_colors));
+  for (bool& value : s_visibility) {
+    value = true;
+  }
 }
 
 void persist() {
@@ -186,6 +203,17 @@ void persist() {
   prefs.putULong(kKeyColorFooter, s_colors[10]);
   prefs.putULong(kKeyColorRoad, s_colors[11]);
   prefs.putULong(kKeyColorCity, s_colors[12]);
+  prefs.putBool(kKeyShowGrid, s_visibility[0]);
+  prefs.putBool(kKeyShowCenter, s_visibility[1]);
+  prefs.putBool(kKeyShowLabel, s_visibility[2]);
+  prefs.putBool(kKeyShowAircraft, s_visibility[3]);
+  prefs.putBool(kKeyShowTrack, s_visibility[4]);
+  prefs.putBool(kKeyShowTagType, s_visibility[5]);
+  prefs.putBool(kKeyShowTagAltitude, s_visibility[6]);
+  prefs.putBool(kKeyShowRunway, s_visibility[7]);
+  prefs.putBool(kKeyShowRunwayLabel, s_visibility[8]);
+  prefs.putBool(kKeyShowRoad, s_visibility[9]);
+  prefs.putBool(kKeyShowCity, s_visibility[10]);
   prefs.end();
 }
 
@@ -213,6 +241,13 @@ void init() {
       kKeyColorFooter, kKeyColorRoad, kKeyColorCity};
   for (size_t i = 0; i < sizeof(s_colors) / sizeof(s_colors[0]); ++i) {
     s_colors[i] = prefs.getULong(color_keys[i], kDefaultColors[i]);
+  }
+  const char* visibility_keys[] = {
+      kKeyShowGrid, kKeyShowCenter, kKeyShowLabel, kKeyShowAircraft,
+      kKeyShowTrack, kKeyShowTagType, kKeyShowTagAltitude, kKeyShowRunway,
+      kKeyShowRunwayLabel, kKeyShowRoad, kKeyShowCity};
+  for (size_t i = 0; i < sizeof(s_visibility) / sizeof(s_visibility[0]); ++i) {
+    s_visibility[i] = prefs.getBool(visibility_keys[i], true);
   }
 
   String value = prefs.getString(kKeyOtaPassword, config::kDefaultOtaPassword);
@@ -244,6 +279,14 @@ uint32_t color(ColorId id) {
     return 0;
   }
   return s_colors[index];
+}
+
+bool visible(VisibilityId id) {
+  const size_t index = static_cast<size_t>(id);
+  if (index >= sizeof(s_visibility) / sizeof(s_visibility[0])) {
+    return false;
+  }
+  return s_visibility[index];
 }
 
 void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
@@ -290,6 +333,21 @@ void saveColorsFromPortal(const char* background, const char* grid,
     if (parseColor(values[i], &parsed)) {
       s_colors[i] = parsed;
     }
+  }
+  persist();
+}
+
+void saveVisibilityFromPortal(const char* grid, const char* center,
+                              const char* label, const char* aircraft,
+                              const char* track_vector, const char* tag_type,
+                              const char* tag_altitude, const char* runway,
+                              const char* runway_label, const char* road,
+                              const char* city) {
+  const char* values[] = {grid, center, label, aircraft, track_vector,
+                          tag_type, tag_altitude, runway, runway_label, road,
+                          city};
+  for (size_t i = 0; i < sizeof(s_visibility) / sizeof(s_visibility[0]); ++i) {
+    s_visibility[i] = checkboxChecked(values[i]);
   }
   persist();
 }
