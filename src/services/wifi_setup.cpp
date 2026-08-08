@@ -170,9 +170,17 @@ WiFiManagerParameter s_param_color_reset_controls(
     "color_footer:'#031020',color_road:'#69737d',color_city:'#aaaaaa'};"
     "Object.keys(d).forEach(function(id){"
     "var i=document.getElementById(id);if(!i)return;"
+    "var p=i.parentNode;"
+    "var c=document.createElement('span');"
+    "c.style.display='grid';c.style.gridTemplateColumns='4rem auto';"
+    "c.style.alignItems='center';c.style.gap='8px';"
     "var b=document.createElement('button');b.type='button';"
-    "b.textContent='Standard';b.style.marginLeft='8px';"
-    "b.onclick=function(){i.value=d[id];};i.parentNode.appendChild(b);"
+    "b.textContent='Standard';b.style.margin='0';"
+    "b.onclick=function(){i.value=d[id];};"
+    "i.style.display='block';i.style.margin='0';"
+    "p.replaceChild(c,i);c.appendChild(i);c.appendChild(b);"
+    "p.style.display='grid';p.style.gridTemplateColumns='minmax(9rem,1fr) auto';"
+    "p.style.alignItems='center';p.style.gap='8px';"
     "});})();</script>");
 
 constexpr char kOtaPasswordAttrs[] =
