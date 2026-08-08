@@ -454,6 +454,55 @@ void clipPointToOuterRing(int x0, int y0, int* x1, int* y1) {
   }
 }
 
+// Clip a complete line segment against the circular radar area. Clipping
+// endpoints independently is not sufficient: a segment can start and end
+// outside the circle while crossing through its visible area.
+bool clipSegmentToOuterRing(int* x0, int* y0, int* x1, int* y1) {
+  const float cx = static_cast<float>(radar::kCenterX);
+  const float cy = static_cast<float>(radar::kCenterY);
+  const float radius = static_cast<float>(radar::kGridOuterRadius);
+
+  const float start_x = static_cast<float>(*x0) - cx;
+  const float start_y = static_cast<float>(*y0) - cy;
+  const float delta_x = static_cast<float>(*x1 - *x0);
+  const float delta_y = static_cast<float>(*y1 - *y0);
+  const float a = delta_x * delta_x + delta_y * delta_y;
+
+  if (a < 0.0001f) {
+    return start_x * start_x + start_y * start_y <= radius * radius;
+  }
+
+  const float b = 2.0f * (start_x * delta_x + start_y * delta_y);
+  const float c = start_x * start_x + start_y * start_y - radius * radius;
+  const float discriminant = b * b - 4.0f * a * c;
+
+  float enter = 0.0f;
+  float leave = 1.0f;
+  if (discriminant < 0.0f) {
+    // No boundary crossing. The segment is visible only if its start point
+    // is inside; a segment wholly outside has no useful draw operation.
+    if (c > 0.0f) {
+      return false;
+    }
+  } else {
+    const float root = sqrtf(discriminant);
+    const float t0 = (-b - root) / (2.0f * a);
+    const float t1 = (-b + root) / (2.0f * a);
+    enter = fmaxf(0.0f, fminf(t0, t1));
+    leave = fminf(1.0f, fmaxf(t0, t1));
+  }
+
+  if (enter > leave) {
+    return false;
+  }
+
+  *x0 += static_cast<int>(lroundf(delta_x * enter));
+  *y0 += static_cast<int>(lroundf(delta_y * enter));
+  *x1 = *x0 + static_cast<int>(lroundf(delta_x * (leave - enter)));
+  *y1 = *y0 + static_cast<int>(lroundf(delta_y * (leave - enter)));
+  return true;
+}
+
 int speedLineLengthPx(float gs_knots) {
   if (gs_knots <= 0.0f) {
     return 0;
@@ -876,9 +925,9 @@ void drawRoadOverlay() {
                      road.points[point_index].lon,
                      &x1, &y1);
 
-      // Keep line ends within the circular radar area.
-      clipPointToOuterRing(radar::kCenterX, radar::kCenterY, &x0, &y0);
-      clipPointToOuterRing(radar::kCenterX, radar::kCenterY, &x1, &y1);
+      if (!clipSegmentToOuterRing(&x0, &y0, &x1, &y1)) {
+        continue;
+      }
 
       if (style.half_width == 0) {
         s_draw->drawLine(x0, y0, x1, y1, style.color);
