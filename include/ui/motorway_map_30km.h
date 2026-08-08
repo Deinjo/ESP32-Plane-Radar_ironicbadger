@@ -252,6 +252,146 @@ constexpr MapPoint kRoadA535[] = {
     {51.350158f, 7.042425f},
 };
 
+// B1, simplified orientation centreline.
+constexpr MapPoint kRoadB1[] = {
+    {51.522153f, 7.651499f},
+    {51.506865f, 7.593732f},
+    {51.507315f, 7.549685f},
+    {51.505291f, 7.520441f},
+    {51.499670f, 7.472062f},
+    {51.497422f, 7.444262f},
+};
+
+// B224, simplified orientation centreline.
+constexpr MapPoint kRoadB224[] = {
+    {51.468194f, 7.007765f},
+    {51.475389f, 7.006321f},
+    {51.486180f, 6.999823f},
+    {51.530922f, 6.989352f},
+};
+
+// B225, simplified orientation centreline.
+constexpr MapPoint kRoadB225[] = {
+    {51.608488f, 7.173121f},
+    {51.609612f, 7.179981f},
+};
+
+// B231, simplified orientation centreline.
+constexpr MapPoint kRoadB231[] = {
+    {51.459426f, 6.984298f},
+    {51.458976f, 6.997295f},
+};
+
+// B234, simplified orientation centreline.
+constexpr MapPoint kRoadB234[] = {
+    {51.362299f, 7.361584f},
+    {51.379611f, 7.375303f},
+    {51.384332f, 7.381441f},
+};
+
+// B236, simplified orientation centreline.
+constexpr MapPoint kRoadB236[] = {
+    {51.591626f, 7.477117f},
+    {51.586904f, 7.484337f},
+    {51.579035f, 7.492641f},
+    {51.556552f, 7.512498f},
+    {51.550482f, 7.515387f},
+    {51.501469f, 7.522246f},
+    {51.486405f, 7.527662f},
+    {51.480335f, 7.534522f},
+    {51.472691f, 7.546797f},
+    {51.465271f, 7.556184f},
+    {51.448859f, 7.564488f},
+    {51.443688f, 7.571348f},
+    {51.440315f, 7.577847f},
+    {51.435144f, 7.580735f},
+    {51.415809f, 7.574236f},
+    {51.392426f, 7.582540f},
+    {51.382084f, 7.590122f},
+    {51.378712f, 7.595537f},
+    {51.372191f, 7.611062f},
+};
+
+// B326, simplified orientation centreline.
+constexpr MapPoint kRoadB326[] = {
+    {51.313960f, 7.269880f},
+    {51.313736f, 7.278906f},
+};
+
+// B474, simplified orientation centreline.
+constexpr MapPoint kRoadB474[] = {
+    {51.753504f, 7.399493f},
+    {51.729672f, 7.402020f},
+    {51.720903f, 7.405270f},
+};
+
+// B483, simplified orientation centreline.
+constexpr MapPoint kRoadB483[] = {
+    {51.293051f, 7.287932f},
+    {51.291252f, 7.278545f},
+    {51.282709f, 7.253272f},
+};
+
+// B515, simplified orientation centreline.
+constexpr MapPoint kRoadB515[] = {
+    {51.472241f, 7.710709f},
+    {51.466845f, 7.724067f},
+    {51.455604f, 7.741758f},
+    {51.450657f, 7.755117f},
+    {51.444812f, 7.775696f},
+    {51.426825f, 7.804940f},
+    {51.408839f, 7.831657f},
+};
+
+// B54, simplified orientation centreline.
+constexpr MapPoint kRoadB54[] = {
+    {51.388379f, 7.443179f},
+    {51.390852f, 7.439930f},
+    {51.392426f, 7.435236f},
+    {51.394899f, 7.433431f},
+    {51.400745f, 7.434514f},
+    {51.411537f, 7.432348f},
+    {51.416933f, 7.439930f},
+    {51.423453f, 7.456176f},
+    {51.429973f, 7.467007f},
+    {51.441439f, 7.481449f},
+    {51.447734f, 7.484698f},
+    {51.477412f, 7.479644f},
+    {51.481684f, 7.476033f},
+    {51.484831f, 7.470618f},
+    {51.489553f, 7.467730f},
+    {51.506190f, 7.467730f},
+    {51.512486f, 7.471340f},
+    {51.515184f, 7.470618f},
+    {51.516533f, 7.464480f},
+    {51.515633f, 7.458343f},
+    {51.513160f, 7.457620f},
+    {51.510912f, 7.461953f},
+    {51.510012f, 7.468091f},
+};
+
+// B58, simplified orientation centreline.
+constexpr MapPoint kRoadB58[] = {
+    {51.750581f, 7.348587f},
+    {51.738890f, 7.325119f},
+    {51.735742f, 7.315732f},
+    {51.735967f, 7.303457f},
+    {51.738440f, 7.276379f},
+};
+
+// B7, simplified orientation centreline.
+constexpr MapPoint kRoadB7[] = {
+    {51.362749f, 7.582901f},
+    {51.358702f, 7.569182f},
+    {51.355554f, 7.565210f},
+    {51.353081f, 7.565932f},
+    {51.353081f, 7.562322f},
+    {51.362074f, 7.546797f},
+    {51.364547f, 7.535966f},
+    {51.364547f, 7.525135f},
+    {51.359151f, 7.478200f},
+};
+
 constexpr MapRoad kMapRoads[] = {
     {"A1", kRoadA1, sizeof(kRoadA1) / sizeof(kRoadA1[0]),
     MapRoadKind::kMotorway},
@@ -275,6 +415,32 @@ constexpr MapRoad kMapRoads[] = {
     MapRoadKind::kMotorway},
     {"A535", kRoadA535, sizeof(kRoadA535) / sizeof(kRoadA535[0]),
     MapRoadKind::kMotorway},
+    {"B1", kRoadB1, sizeof(kRoadB1) / sizeof(kRoadB1[0]),
+    MapRoadKind::kPrimary},
+    {"B224", kRoadB224, sizeof(kRoadB224) / sizeof(kRoadB224[0]),
+    MapRoadKind::kPrimary},
+    {"B225", kRoadB225, sizeof(kRoadB225) / sizeof(kRoadB225[0]),
+    MapRoadKind::kPrimary},
+    {"B231", kRoadB231, sizeof(kRoadB231) / sizeof(kRoadB231[0]),
+    MapRoadKind::kPrimary},
+    {"B234", kRoadB234, sizeof(kRoadB234) / sizeof(kRoadB234[0]),
+    MapRoadKind::kPrimary},
+    {"B236", kRoadB236, sizeof(kRoadB236) / sizeof(kRoadB236[0]),
+    MapRoadKind::kPrimary},
+    {"B326", kRoadB326, sizeof(kRoadB326) / sizeof(kRoadB326[0]),
+    MapRoadKind::kPrimary},
+    {"B474", kRoadB474, sizeof(kRoadB474) / sizeof(kRoadB474[0]),
+    MapRoadKind::kPrimary},
+    {"B483", kRoadB483, sizeof(kRoadB483) / sizeof(kRoadB483[0]),
+    MapRoadKind::kPrimary},
+    {"B515", kRoadB515, sizeof(kRoadB515) / sizeof(kRoadB515[0]),
+    MapRoadKind::kPrimary},
+    {"B54", kRoadB54, sizeof(kRoadB54) / sizeof(kRoadB54[0]),
+    MapRoadKind::kPrimary},
+    {"B58", kRoadB58, sizeof(kRoadB58) / sizeof(kRoadB58[0]),
+    MapRoadKind::kPrimary},
+    {"B7", kRoadB7, sizeof(kRoadB7) / sizeof(kRoadB7[0]),
+    MapRoadKind::kPrimary},
 };
 
 constexpr size_t kMapRoadCount =
