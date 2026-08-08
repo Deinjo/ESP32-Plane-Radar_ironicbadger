@@ -35,6 +35,7 @@ enum class ColorId : uint8_t {
   kFooterBackground,
   kRoad,
   kCity,
+  kRoadPrimary,
 };
 
 /** Return a configured color as 0xRRGGBB. */
@@ -52,6 +53,7 @@ enum class VisibilityId : uint8_t {
   kRunwayLabel,
   kRoad,
   kCity,
+  kRoadPrimary,
 };
 
 bool visible(VisibilityId id);
@@ -72,17 +74,17 @@ void saveColorsFromPortal(const char* background, const char* grid,
                           const char* label, const char* center,
                           const char* aircraft, const char* track_vector,
                           const char* tag_type, const char* tag_altitude,
-                          const char* runway, const char* runway_label,
-                          const char* footer_background, const char* road,
-                          const char* city);
+                           const char* runway, const char* runway_label,
+                           const char* footer_background, const char* road,
+                           const char* city, const char* road_primary);
 
 /** Store visibility checkbox values for drawable radar elements. */
 void saveVisibilityFromPortal(const char* grid, const char* center,
                               const char* label, const char* aircraft,
                               const char* track_vector, const char* tag_type,
-                              const char* tag_altitude, const char* runway,
-                              const char* runway_label, const char* road,
-                              const char* city);
+                               const char* tag_altitude, const char* runway,
+                               const char* runway_label, const char* road,
+                               const char* city, const char* road_primary);
 
 /** Restore defaults during a full BOOT-button reset. */
 void clear();

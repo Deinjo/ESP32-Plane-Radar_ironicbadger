@@ -199,8 +199,10 @@ WiFiManagerParameter s_param_color_runway_label("color_runway_label", "Runway la
                                                    kColorInputLen, kColorInputAttrs);
 WiFiManagerParameter s_param_color_footer("color_footer", "Footer background", "#031020",
                                            kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_road("color_road", "Roads", "#69737d",
-                                         kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_road("color_road", "Motorways", "#69737d",
+                                          kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_road_primary("color_road_primary", "Primary roads", "#3c4650",
+                                                 kColorInputLen, kColorInputAttrs);
 WiFiManagerParameter s_param_color_city("color_city", "Cities", "#aaaaaa",
                                          kColorInputLen, kColorInputAttrs);
 
@@ -214,6 +216,7 @@ char s_show_tag_alt_attrs[32] = "type=\"checkbox\"";
 char s_show_runway_attrs[32] = "type=\"checkbox\"";
 char s_show_runway_label_attrs[32] = "type=\"checkbox\"";
 char s_show_road_attrs[32] = "type=\"checkbox\"";
+char s_show_road_primary_attrs[32] = "type=\"checkbox\"";
 char s_show_city_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_show_grid("show_grid", "Show grid", "T", 2,
                                         s_show_grid_attrs, WFM_LABEL_AFTER);
@@ -235,6 +238,9 @@ WiFiManagerParameter s_param_show_runway_label("show_runway_label", "Show runway
                                                 s_show_runway_label_attrs, WFM_LABEL_AFTER);
 WiFiManagerParameter s_param_show_road("show_road", "Show roads", "T", 2,
                                         s_show_road_attrs, WFM_LABEL_AFTER);
+WiFiManagerParameter s_param_show_road_primary(
+    "show_road_primary", "Show primary roads", "T", 2,
+    s_show_road_primary_attrs, WFM_LABEL_AFTER);
 WiFiManagerParameter s_param_show_city("show_city", "Show cities", "T", 2,
                                         s_show_city_attrs, WFM_LABEL_AFTER);
 WiFiManagerParameter s_param_color_group_background(
@@ -293,13 +299,14 @@ WiFiManagerParameter s_param_color_reset_controls(
     "color_aircraft:'#ff0000',color_track:'#ff00ff',"
     "color_tag_type:'#ffc800',color_tag_alt:'#5ac8ff',"
     "color_runway:'#3896aa',color_runway_label:'#6ed2e6',"
-    "color_footer:'#031020',color_road:'#69737d',color_city:'#aaaaaa'};"
+    "color_footer:'#031020',color_road:'#69737d',"
+    "color_road_primary:'#3c4650',color_city:'#aaaaaa'};"
     "var v={color_grid:'show_grid',color_center:'show_center',"
     "color_label:'show_label',color_aircraft:'show_aircraft',"
     "color_track:'show_track',color_tag_type:'show_tag_type',"
     "color_tag_alt:'show_tag_alt',color_runway:'show_runway',"
     "color_runway_label:'show_runway_label',color_road:'show_road',"
-    "color_city:'show_city'};"
+    "color_road_primary:'show_road_primary',color_city:'show_city'};"
     "Object.keys(d).forEach(function(id){"
     "var i=document.getElementById(id);if(!i)return;"
     "var p=i.parentNode;"
@@ -410,6 +417,8 @@ void refreshPortalParamDefaults() {
   setColor(s_param_color_runway_label, services::settings::ColorId::kRunwayLabel);
   setColor(s_param_color_footer, services::settings::ColorId::kFooterBackground);
   setColor(s_param_color_road, services::settings::ColorId::kRoad);
+  setColor(s_param_color_road_primary,
+           services::settings::ColorId::kRoadPrimary);
   setColor(s_param_color_city, services::settings::ColorId::kCity);
 
   const auto setVisibility = [](char* attrs, size_t attrs_len,
@@ -440,6 +449,9 @@ void refreshPortalParamDefaults() {
                 services::settings::VisibilityId::kRunwayLabel);
   setVisibility(s_show_road_attrs, sizeof(s_show_road_attrs), s_param_show_road,
                 services::settings::VisibilityId::kRoad);
+  setVisibility(s_show_road_primary_attrs, sizeof(s_show_road_primary_attrs),
+                s_param_show_road_primary,
+                services::settings::VisibilityId::kRoadPrimary);
   setVisibility(s_show_city_attrs, sizeof(s_show_city_attrs), s_param_show_city,
                 services::settings::VisibilityId::kCity);
 }
@@ -465,14 +477,14 @@ void onPortalParamsSaved() {
       s_param_color_tag_type.getValue(), s_param_color_tag_alt.getValue(),
       s_param_color_runway.getValue(), s_param_color_runway_label.getValue(),
       s_param_color_footer.getValue(), s_param_color_road.getValue(),
-      s_param_color_city.getValue());
+      s_param_color_city.getValue(), s_param_color_road_primary.getValue());
   services::settings::saveVisibilityFromPortal(
       s_param_show_grid.getValue(), s_param_show_center.getValue(),
       s_param_show_label.getValue(), s_param_show_aircraft.getValue(),
       s_param_show_track.getValue(), s_param_show_tag_type.getValue(),
       s_param_show_tag_alt.getValue(), s_param_show_runway.getValue(),
       s_param_show_runway_label.getValue(), s_param_show_road.getValue(),
-      s_param_show_city.getValue());
+      s_param_show_city.getValue(), s_param_show_road_primary.getValue());
 }
 
 void savePortalParamsFromRequest(WebServer& web) {
@@ -499,6 +511,7 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String color_runway_label = web.arg("color_runway_label");
   const String color_footer = web.arg("color_footer");
   const String color_road = web.arg("color_road");
+  const String color_road_primary = web.arg("color_road_primary");
   const String color_city = web.arg("color_city");
   const String show_grid = web.arg("show_grid");
   const String show_center = web.arg("show_center");
@@ -510,6 +523,7 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String show_runway = web.arg("show_runway");
   const String show_runway_label = web.arg("show_runway_label");
   const String show_road = web.arg("show_road");
+  const String show_road_primary = web.arg("show_road_primary");
   const String show_city = web.arg("show_city");
 
   if (!services::location::saveFromStrings(latitude.c_str(),
@@ -527,12 +541,12 @@ void savePortalParamsFromRequest(WebServer& web) {
       color_center.c_str(), color_aircraft.c_str(), color_track.c_str(),
       color_tag_type.c_str(), color_tag_alt.c_str(), color_runway.c_str(),
       color_runway_label.c_str(), color_footer.c_str(), color_road.c_str(),
-      color_city.c_str());
+      color_city.c_str(), color_road_primary.c_str());
   services::settings::saveVisibilityFromPortal(
       show_grid.c_str(), show_center.c_str(), show_label.c_str(),
       show_aircraft.c_str(), show_track.c_str(), show_tag_type.c_str(),
       show_tag_alt.c_str(), show_runway.c_str(), show_runway_label.c_str(),
-      show_road.c_str(), show_city.c_str());
+      show_road.c_str(), show_city.c_str(), show_road_primary.c_str());
   refreshPortalParamDefaults();
 }
 
@@ -593,6 +607,8 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_color_group_background);
   wm.addParameter(&s_param_color_road);
   wm.addParameter(&s_param_show_road);
+  wm.addParameter(&s_param_color_road_primary);
+  wm.addParameter(&s_param_show_road_primary);
   wm.addParameter(&s_param_color_runway);
   wm.addParameter(&s_param_show_runway);
   wm.addParameter(&s_param_color_runway_label);

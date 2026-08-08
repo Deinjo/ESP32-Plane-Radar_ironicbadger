@@ -906,7 +906,7 @@ RoadDrawStyle roadDrawStyle(MapRoadKind kind) {
 
     case MapRoadKind::kPrimary:
       // More subtle than a motorway.
-      return {configuredColor(services::settings::ColorId::kRoad), 0};
+      return {configuredColor(services::settings::ColorId::kRoadPrimary), 0};
   }
 
   // Defensive fallback; should not be reached with the current enum.
@@ -916,12 +916,15 @@ RoadDrawStyle roadDrawStyle(MapRoadKind kind) {
 void drawRoadOverlay() {
   // Subtle dark-grey motorway layer. It should remain behind cities,
   // runways and aircraft.
-  if (!services::settings::visible(services::settings::VisibilityId::kRoad)) {
-    return;
-  }
-
   for (size_t road_index = 0; road_index < kMapRoadCount; ++road_index) {
     const MapRoad& road = kMapRoads[road_index];
+    const services::settings::VisibilityId visibility_id =
+        road.kind == MapRoadKind::kPrimary
+            ? services::settings::VisibilityId::kRoadPrimary
+            : services::settings::VisibilityId::kRoad;
+    if (!services::settings::visible(visibility_id)) {
+      continue;
+    }
     const RoadDrawStyle style = roadDrawStyle(road.kind);
 
     if (road.point_count < 2) {
