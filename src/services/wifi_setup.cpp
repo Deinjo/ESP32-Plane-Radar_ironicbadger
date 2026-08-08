@@ -133,8 +133,11 @@ WiFiManagerParameter s_param_miles("use_miles", "Display distances in miles", "T
 char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
                                      s_runways_checkbox_attrs, WFM_LABEL_AFTER);
-constexpr char kRangeInputAttrs[] = "type=\"hidden\"";
-WiFiManagerParameter s_param_range("range_index", "Radar range", "1", 2,
+constexpr char kRangeInputAttrs[] =
+    "type=\"range\" min=\"0\" max=\"3\" step=\"1\" "
+    "title=\"5 km / 10 km / 15 km / 25 km\"";
+WiFiManagerParameter s_param_range(
+    "range_index", "Radar range (5 / 10 / 15 / 25 km)", "1", 2,
                                    kRangeInputAttrs);
 
 char s_footer_checkbox_attrs[32] = "type=\"checkbox\"";
@@ -310,19 +313,6 @@ WiFiManagerParameter s_param_color_reset_controls(
     "color_tag_alt:'show_tag_alt',color_runway:'show_runway',"
     "color_runway_label:'show_runway_label',color_road:'show_road',"
     "color_road_primary:'show_road_primary',color_city:'show_city'};"
-    "var r=document.getElementById('range_index');"
-    "if(r){var rp=r.parentNode;var rl=document.querySelector('label[for=\"range_index\"]');"
-    "if(rl)rl.style.display='none';r.style.display='none';"
-    "var rr=document.createElement('div');rr.style.display='grid';"
-    "rr.style.gridTemplateColumns='minmax(9rem,1fr) minmax(9rem,auto)';"
-    "rr.style.alignItems='center';rr.style.gap='8px';"
-    "var rt=document.createElement('span');rt.textContent='Radar range';"
-    "var rs=document.createElement('select');"
-    "[['5 km','0'],['10 km','1'],['15 km','2'],['25 km','3']].forEach(function(o){"
-    "var op=document.createElement('option');op.textContent=o[0];op.value=o[1];"
-    "if(o[1]===r.value)op.selected=true;rs.appendChild(op);});"
-    "rs.onchange=function(){r.value=rs.value;};rr.appendChild(rt);rr.appendChild(rs);"
-    "rp.insertBefore(rr,r);}"
     "Object.keys(d).forEach(function(id){"
     "var i=document.getElementById(id);if(!i)return;"
     "var p=i.parentNode;"
