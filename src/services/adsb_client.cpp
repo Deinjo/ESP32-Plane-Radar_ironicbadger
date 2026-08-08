@@ -52,7 +52,6 @@ int performGetWithPoll(HTTPClient& http, unsigned long timeout_ms) {
   http.setConnectTimeout(kConnectAttemptMs);
   const unsigned long started_ms = millis();
   while (millis() - started_ms < timeout_ms) {
-    pollNetwork();
     const int code = http.GET();
     if (code > 0) {
       return code;
@@ -81,7 +80,6 @@ bool readResponseBodyWithPoll(HTTPClient& http, String& payload,
   uint8_t buffer[512];
   const unsigned long started_ms = millis();
   while (millis() - started_ms < timeout_ms) {
-    pollNetwork();
     const int available = stream->available();
     if (available > 0) {
       const int to_read =
@@ -103,6 +101,12 @@ bool readResponseBodyWithPoll(HTTPClient& http, String& payload,
     delay(1);
   }
 
+  if (content_length > 0 &&
+      static_cast<int>(payload.length()) < content_length) {
+    Serial.printf("HTTP response incomplete: received %u of %d bytes\n",
+                  static_cast<unsigned>(payload.length()), content_length);
+    return false;
+  }
   return payload.length() > 0;
 }
 
@@ -449,12 +453,18 @@ bool fetchFlightDataJson(const String& url, const char* callsign,
     Serial.println("flight data: http.begin failed");
     return false;
   }
+  // Prefer a Content-Length response so truncated HTTPS bodies can be
+  // detected before they reach ArduinoJson.
+  http.useHTTP10(true);
   http.setTimeout(config::kFlightLookupTimeoutMs);
   const int code = performGetWithPoll(http, config::kFlightLookupTimeoutMs);
 
   String payload;
   if (code == HTTP_CODE_OK) {
-    readResponseBodyWithPoll(http, payload, config::kFlightLookupTimeoutMs);
+    if (!readResponseBodyWithPoll(http, payload,
+                                  config::kFlightLookupTimeoutMs)) {
+      Serial.printf("flight data: incomplete response for %s\n", callsign);
+    }
   }
   http.end();
 
@@ -557,6 +567,9 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
     return false;
   }
 
+  // Prefer a Content-Length response so truncated HTTPS bodies can be
+  // detected before they reach ArduinoJson.
+  http.useHTTP10(true);
   http.setTimeout(kAdsbRequestTimeoutMs);
   const int code = performGetWithPoll(http, kAdsbRequestTimeoutMs);
   if (code != HTTP_CODE_OK) {

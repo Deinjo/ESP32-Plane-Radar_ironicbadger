@@ -114,9 +114,7 @@ bool fetch(double latitude, double longitude) {
   http.setConnectTimeout(config::kWeatherRequestTimeoutMs);
   http.setTimeout(config::kWeatherRequestTimeoutMs);
 
-  pollNetwork();
   const int code = http.GET();
-  pollNetwork();
   if (code != HTTP_CODE_OK) {
     Serial.printf("weather: HTTP %d\n", code);
     http.end();
@@ -125,7 +123,6 @@ bool fetch(double latitude, double longitude) {
 
   const String payload = http.getString();
   http.end();
-  pollNetwork();
 
   JsonDocument doc;
   const DeserializationError error = deserializeJson(doc, payload);
