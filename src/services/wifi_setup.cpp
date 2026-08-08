@@ -594,6 +594,11 @@ void attachSettingsRoutes() {
   if (!s_wm.server) {
     return;
   }
+  // Browsers request this automatically when opening the portal. Returning
+  // an empty response avoids a misleading "handler not found" log entry.
+  s_wm.server->on("/favicon.ico", HTTP_GET, []() {
+    s_wm.server->send(204, "text/plain", "");
+  });
   // Register before WiFiManager's built-in /paramsave handler so the custom
   // confirmation can redirect back to Setup.
   s_wm.server->on("/paramsave", HTTP_POST, handleSettingsSaved);
