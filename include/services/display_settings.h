@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 
 namespace services::settings {
 
@@ -20,6 +21,25 @@ bool use24HourClock();
 int textScalePercent();
 const char* otaPassword();
 
+enum class ColorId : uint8_t {
+  kBackground,
+  kGrid,
+  kLabel,
+  kCenter,
+  kAircraft,
+  kTrackVector,
+  kTagType,
+  kTagAltitude,
+  kRunway,
+  kRunwayLabel,
+  kFooterBackground,
+  kRoad,
+  kCity,
+};
+
+/** Return a configured color as 0xRRGGBB. */
+uint32_t color(ColorId id);
+
 /**
  * Store web-portal values. An empty OTA password keeps the current password so
  * the portal never needs to echo the stored secret into its HTML.
@@ -27,9 +47,18 @@ const char* otaPassword();
 void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                     const char* fahrenheit_checkbox,
                     const char* altitude_metres_checkbox,
-                    const char* clock24_checkbox,
-                    const char* text_scale_percent_value,
-                    const char* ota_password_value);
+                     const char* clock24_checkbox,
+                     const char* text_scale_percent_value,
+                     const char* ota_password_value);
+
+/** Store HTML color input values as persistent 0xRRGGBB colors. */
+void saveColorsFromPortal(const char* background, const char* grid,
+                          const char* label, const char* center,
+                          const char* aircraft, const char* track_vector,
+                          const char* tag_type, const char* tag_altitude,
+                          const char* runway, const char* runway_label,
+                          const char* footer_background, const char* road,
+                          const char* city);
 
 /** Restore defaults during a full BOOT-button reset. */
 void clear();

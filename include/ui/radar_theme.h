@@ -70,7 +70,7 @@ constexpr int kFooterTimeY = 216;
 constexpr int kFooterTimeOnlyY = 205;
 constexpr int kFooterLabelHeightPx = 13;
 
-/** RGB565 palette targets (applied in initPalette). */
+/** Default RGB palette targets (applied in initPalette). */
 constexpr uint8_t kBgR = 4;
 constexpr uint8_t kBgG = 10;
 constexpr uint8_t kBgB = 28;

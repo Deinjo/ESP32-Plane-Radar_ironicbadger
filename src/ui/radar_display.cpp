@@ -202,31 +202,30 @@ void initFooterMetrics() {
   s_footer_metrics_ready = true;
 }
 
-void initPalette() {
-  radar::kColorBackground = tft.color565(radar::kBgR, radar::kBgG, radar::kBgB);
-  radar::kColorGrid = tft.color565(radar::kGridR, radar::kGridG, radar::kGridB);
-  radar::kColorLabel = tft.color565(255, 255, 255);
-  radar::kColorCenter = tft.color565(255, 255, 255);
-  // GC9A01 BGR panel: swap R/B in color565 so logical red renders red on screen.
+uint16_t configuredColor(services::settings::ColorId id) {
+  const uint32_t value = services::settings::color(id);
+  const uint8_t red = static_cast<uint8_t>((value >> 16) & 0xFFu);
+  const uint8_t green = static_cast<uint8_t>((value >> 8) & 0xFFu);
+  const uint8_t blue = static_cast<uint8_t>(value & 0xFFu);
   if (config::kDisplayRgbOrder) {
-    radar::kColorAircraft =
-        tft.color565(radar::kAircraftB, radar::kAircraftG, radar::kAircraftR);
-  } else {
-    radar::kColorAircraft =
-        tft.color565(radar::kAircraftR, radar::kAircraftG, radar::kAircraftB);
+    return tft.color565(blue, green, red);
   }
-  radar::kColorTrackVector =
-      tft.color565(radar::kTrackR, radar::kTrackG, radar::kTrackB);
-  radar::kColorTagType =
-      tft.color565(radar::kTagTypeR, radar::kTagTypeG, radar::kTagTypeB);
-  radar::kColorTagAltitude =
-      tft.color565(radar::kTagAltR, radar::kTagAltG, radar::kTagAltB);
-  radar::kColorRunway =
-      tft.color565(radar::kRunwayR, radar::kRunwayG, radar::kRunwayB);
-  radar::kColorRunwayLabel = tft.color565(radar::kRunwayLabelR, radar::kRunwayLabelG,
-                                          radar::kRunwayLabelB);
+  return tft.color565(red, green, blue);
+}
+
+void initPalette() {
+  radar::kColorBackground = configuredColor(services::settings::ColorId::kBackground);
+  radar::kColorGrid = configuredColor(services::settings::ColorId::kGrid);
+  radar::kColorLabel = configuredColor(services::settings::ColorId::kLabel);
+  radar::kColorCenter = configuredColor(services::settings::ColorId::kCenter);
+  radar::kColorAircraft = configuredColor(services::settings::ColorId::kAircraft);
+  radar::kColorTrackVector = configuredColor(services::settings::ColorId::kTrackVector);
+  radar::kColorTagType = configuredColor(services::settings::ColorId::kTagType);
+  radar::kColorTagAltitude = configuredColor(services::settings::ColorId::kTagAltitude);
+  radar::kColorRunway = configuredColor(services::settings::ColorId::kRunway);
+  radar::kColorRunwayLabel = configuredColor(services::settings::ColorId::kRunwayLabel);
   radar::kColorFooterBackground =
-      tft.color565(radar::kFooterBgR, radar::kFooterBgG, radar::kFooterBgB);
+      configuredColor(services::settings::ColorId::kFooterBackground);
 }
 
 constexpr float kKmPerDeg = 111.0f;
@@ -886,15 +885,15 @@ RoadDrawStyle roadDrawStyle(MapRoadKind kind) {
   switch (kind) {
     case MapRoadKind::kMotorway:
       // Visible but still behind cities, runways and aircraft.
-      return {tft.color565(105, 115, 125), 0};
+      return {configuredColor(services::settings::ColorId::kRoad), 0};
 
     case MapRoadKind::kPrimary:
       // More subtle than a motorway.
-      return {tft.color565(60, 70, 80), 0};
+      return {configuredColor(services::settings::ColorId::kRoad), 0};
   }
 
   // Defensive fallback; should not be reached with the current enum.
-  return {tft.color565(70, 70, 70), 0};
+  return {configuredColor(services::settings::ColorId::kRoad), 0};
 }
 
 void drawRoadOverlay() {
@@ -941,7 +940,8 @@ void drawRoadOverlay() {
 void drawCityOverlay() {
   // Cities are orientation aids. Aircraft, runway labels and radar UI
   // always have priority over city labels.
-  const uint16_t city_color = tft.color565(170, 170, 170);
+  const uint16_t city_color =
+      configuredColor(services::settings::ColorId::kCity);
 
   s_draw->setFont(&lgfx_fonts::Font0);
   s_draw->setTextSize(1);

@@ -130,7 +130,36 @@ WiFiManagerParameter s_param_text_scale_output(
     "<output id=\"text_scale_value\" for=\"text_scale\"></output></div>"
     "<script>(function(){var s=document.getElementById('text_scale'),"
     "o=document.getElementById('text_scale_value');"
-    "if(s&&o)o.value=s.value+'%';})();</script>");
+      "if(s&&o)o.value=s.value+'%';})();</script>");
+
+constexpr char kColorInputAttrs[] = "type=\"color\"";
+constexpr int kColorInputLen = 8;
+WiFiManagerParameter s_param_color_background("color_bg", "Background", "#040a1c",
+                                               kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_grid("color_grid", "Grid", "#106420",
+                                         kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_label("color_label", "Labels", "#ffffff",
+                                          kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_center("color_center", "Center marker", "#ffffff",
+                                           kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_aircraft("color_aircraft", "Aircraft", "#ff0000",
+                                              kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_track("color_track", "Track vector", "#ff00ff",
+                                          kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_tag_type("color_tag_type", "Aircraft type", "#ffc800",
+                                              kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_tag_alt("color_tag_alt", "Altitude", "#5ac8ff",
+                                            kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_runway("color_runway", "Runways", "#3896aa",
+                                            kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_runway_label("color_runway_label", "Runway labels", "#6ed2e6",
+                                                   kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_footer("color_footer", "Footer background", "#031020",
+                                           kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_road("color_road", "Roads", "#69737d",
+                                         kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_city("color_city", "Cities", "#aaaaaa",
+                                         kColorInputLen, kColorInputAttrs);
 
 constexpr char kOtaPasswordAttrs[] =
     "type=\"password\" autocomplete=\"new-password\" "
@@ -184,6 +213,32 @@ void refreshPortalParamDefaults() {
            services::settings::textScalePercent());
   s_param_text_scale.setValue(text_scale_buf, kTextScaleParamLen);
   s_param_ota_password.setValue("", kOtaPasswordParamLen);
+
+  const auto setColor = [](WiFiManagerParameter& param,
+                           services::settings::ColorId id) {
+    char value[8];
+    snprintf(value, sizeof(value), "#%06lX",
+             static_cast<unsigned long>(services::settings::color(id)));
+    for (char* p = value + 1; *p != '\0'; ++p) {
+      if (*p >= 'A' && *p <= 'F') {
+        *p = static_cast<char>(*p - 'A' + 'a');
+      }
+    }
+    param.setValue(value, kColorInputLen);
+  };
+  setColor(s_param_color_background, services::settings::ColorId::kBackground);
+  setColor(s_param_color_grid, services::settings::ColorId::kGrid);
+  setColor(s_param_color_label, services::settings::ColorId::kLabel);
+  setColor(s_param_color_center, services::settings::ColorId::kCenter);
+  setColor(s_param_color_aircraft, services::settings::ColorId::kAircraft);
+  setColor(s_param_color_track, services::settings::ColorId::kTrackVector);
+  setColor(s_param_color_tag_type, services::settings::ColorId::kTagType);
+  setColor(s_param_color_tag_alt, services::settings::ColorId::kTagAltitude);
+  setColor(s_param_color_runway, services::settings::ColorId::kRunway);
+  setColor(s_param_color_runway_label, services::settings::ColorId::kRunwayLabel);
+  setColor(s_param_color_footer, services::settings::ColorId::kFooterBackground);
+  setColor(s_param_color_road, services::settings::ColorId::kRoad);
+  setColor(s_param_color_city, services::settings::ColorId::kCity);
 }
 
 void onPortalParamsSaved() {
@@ -200,6 +255,14 @@ void onPortalParamsSaved() {
     s_param_clock24.getValue(),
     s_param_text_scale.getValue(),
     s_param_ota_password.getValue());
+  services::settings::saveColorsFromPortal(
+      s_param_color_background.getValue(), s_param_color_grid.getValue(),
+      s_param_color_label.getValue(), s_param_color_center.getValue(),
+      s_param_color_aircraft.getValue(), s_param_color_track.getValue(),
+      s_param_color_tag_type.getValue(), s_param_color_tag_alt.getValue(),
+      s_param_color_runway.getValue(), s_param_color_runway_label.getValue(),
+      s_param_color_footer.getValue(), s_param_color_road.getValue(),
+      s_param_color_city.getValue());
 }
 
 void savePortalParamsFromRequest(WebServer& web) {
@@ -214,6 +277,19 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String clock24 = web.arg("clock_24");
   const String text_scale = web.arg("text_scale");
   const String ota_password = web.arg("ota_password");
+  const String color_background = web.arg("color_bg");
+  const String color_grid = web.arg("color_grid");
+  const String color_label = web.arg("color_label");
+  const String color_center = web.arg("color_center");
+  const String color_aircraft = web.arg("color_aircraft");
+  const String color_track = web.arg("color_track");
+  const String color_tag_type = web.arg("color_tag_type");
+  const String color_tag_alt = web.arg("color_tag_alt");
+  const String color_runway = web.arg("color_runway");
+  const String color_runway_label = web.arg("color_runway_label");
+  const String color_footer = web.arg("color_footer");
+  const String color_road = web.arg("color_road");
+  const String color_city = web.arg("color_city");
 
   if (!services::location::saveFromStrings(latitude.c_str(),
                                            longitude.c_str())) {
@@ -225,6 +301,12 @@ void savePortalParamsFromRequest(WebServer& web) {
     footer.c_str(), weather.c_str(), fahrenheit.c_str(),
     altitude_metres.c_str(), clock24.c_str(),
     text_scale.c_str(), ota_password.c_str());
+  services::settings::saveColorsFromPortal(
+      color_background.c_str(), color_grid.c_str(), color_label.c_str(),
+      color_center.c_str(), color_aircraft.c_str(), color_track.c_str(),
+      color_tag_type.c_str(), color_tag_alt.c_str(), color_runway.c_str(),
+      color_runway_label.c_str(), color_footer.c_str(), color_road.c_str(),
+      color_city.c_str());
   refreshPortalParamDefaults();
 }
 
@@ -275,6 +357,19 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_text_scale);
   wm.addParameter(&s_param_text_scale_output);
   wm.addParameter(&s_param_ota_password);
+  wm.addParameter(&s_param_color_background);
+  wm.addParameter(&s_param_color_grid);
+  wm.addParameter(&s_param_color_label);
+  wm.addParameter(&s_param_color_center);
+  wm.addParameter(&s_param_color_aircraft);
+  wm.addParameter(&s_param_color_track);
+  wm.addParameter(&s_param_color_tag_type);
+  wm.addParameter(&s_param_color_tag_alt);
+  wm.addParameter(&s_param_color_runway);
+  wm.addParameter(&s_param_color_runway_label);
+  wm.addParameter(&s_param_color_footer);
+  wm.addParameter(&s_param_color_road);
+  wm.addParameter(&s_param_color_city);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 
