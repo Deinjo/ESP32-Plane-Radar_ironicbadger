@@ -160,6 +160,20 @@ WiFiManagerParameter s_param_color_road("color_road", "Roads", "#69737d",
                                          kColorInputLen, kColorInputAttrs);
 WiFiManagerParameter s_param_color_city("color_city", "Cities", "#aaaaaa",
                                          kColorInputLen, kColorInputAttrs);
+WiFiManagerParameter s_param_color_reset_controls(
+    "<script>(function(){"
+    "var d={color_bg:'#040a1c',color_grid:'#106420',"
+    "color_label:'#ffffff',color_center:'#ffffff',"
+    "color_aircraft:'#ff0000',color_track:'#ff00ff',"
+    "color_tag_type:'#ffc800',color_tag_alt:'#5ac8ff',"
+    "color_runway:'#3896aa',color_runway_label:'#6ed2e6',"
+    "color_footer:'#031020',color_road:'#69737d',color_city:'#aaaaaa'};"
+    "Object.keys(d).forEach(function(id){"
+    "var i=document.getElementById(id);if(!i)return;"
+    "var b=document.createElement('button');b.type='button';"
+    "b.textContent='Standard';b.style.marginLeft='8px';"
+    "b.onclick=function(){i.value=d[id];};i.parentNode.appendChild(b);"
+    "});})();</script>");
 
 constexpr char kOtaPasswordAttrs[] =
     "type=\"password\" autocomplete=\"new-password\" "
@@ -370,6 +384,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_color_footer);
   wm.addParameter(&s_param_color_road);
   wm.addParameter(&s_param_color_city);
+  wm.addParameter(&s_param_color_reset_controls);
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 
