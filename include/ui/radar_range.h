@@ -40,6 +40,8 @@ void rangeInit();
 void rangeNext();
 const RangePreset& rangeCurrent();
 uint8_t rangeIndex();
+/** Web portal setting: select and persist a range preset by index. */
+void saveRangeFromPortal(const char* index_value);
 /** ADSB fetch radius (km): scaled to screen edge so beyond-ring dots have data. */
 float fetchRadiusKm();
 

@@ -78,6 +78,20 @@ void rangeNext() {
   saveRangeIndex();
 }
 
+void saveRangeFromPortal(const char* index_value) {
+  if (index_value == nullptr || index_value[0] == '\0') {
+    return;
+  }
+  char* end = nullptr;
+  const long parsed = strtol(index_value, &end, 10);
+  if (end == index_value || *end != '\0' || parsed < 0 ||
+      parsed >= static_cast<long>(kRangePresetCount)) {
+    return;
+  }
+  s_range_index = static_cast<uint8_t>(parsed);
+  saveRangeIndex();
+}
+
 const RangePreset& rangeCurrent() { return kRangePresets[s_range_index]; }
 
 uint8_t rangeIndex() { return s_range_index; }

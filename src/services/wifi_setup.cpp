@@ -133,6 +133,9 @@ WiFiManagerParameter s_param_miles("use_miles", "Display distances in miles", "T
 char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
                                      s_runways_checkbox_attrs, WFM_LABEL_AFTER);
+constexpr char kRangeInputAttrs[] = "type=\"hidden\"";
+WiFiManagerParameter s_param_range("range_index", "Radar range", "1", 2,
+                                   kRangeInputAttrs);
 
 char s_footer_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_footer("show_footer", "Show weather and clock", "T",
@@ -307,6 +310,19 @@ WiFiManagerParameter s_param_color_reset_controls(
     "color_tag_alt:'show_tag_alt',color_runway:'show_runway',"
     "color_runway_label:'show_runway_label',color_road:'show_road',"
     "color_road_primary:'show_road_primary',color_city:'show_city'};"
+    "var r=document.getElementById('range_index');"
+    "if(r){var rp=r.parentNode;var rl=document.querySelector('label[for=\"range_index\"]');"
+    "if(rl)rl.style.display='none';r.style.display='none';"
+    "var rr=document.createElement('div');rr.style.display='grid';"
+    "rr.style.gridTemplateColumns='minmax(9rem,1fr) minmax(9rem,auto)';"
+    "rr.style.alignItems='center';rr.style.gap='8px';"
+    "var rt=document.createElement('span');rt.textContent='Radar range';"
+    "var rs=document.createElement('select');"
+    "[['5 km','0'],['10 km','1'],['15 km','2'],['25 km','3']].forEach(function(o){"
+    "var op=document.createElement('option');op.textContent=o[0];op.value=o[1];"
+    "if(o[1]===r.value)op.selected=true;rs.appendChild(op);});"
+    "rs.onchange=function(){r.value=rs.value;};rr.appendChild(rt);rr.appendChild(rs);"
+    "rp.insertBefore(rr,r);}"
     "Object.keys(d).forEach(function(id){"
     "var i=document.getElementById(id);if(!i)return;"
     "var p=i.parentNode;"
@@ -367,6 +383,10 @@ void refreshPortalParamDefaults() {
                        sizeof(s_runways_checkbox_attrs),
                        ui::radar::showRunways());
   s_param_runways.setValue("T", 2);
+  char range_buf[3];
+  snprintf(range_buf, sizeof(range_buf), "%u",
+           static_cast<unsigned>(ui::radar::rangeIndex()));
+  s_param_range.setValue(range_buf, 2);
   refreshCheckboxAttrs(s_footer_checkbox_attrs,
                        sizeof(s_footer_checkbox_attrs),
                        services::settings::footerEnabled());
@@ -463,6 +483,7 @@ void onPortalParamsSaved() {
   }
   ui::radar::saveMilesFromPortal(s_param_miles.getValue());
   ui::radar::saveRunwaysFromPortal(s_param_runways.getValue());
+  ui::radar::saveRangeFromPortal(s_param_range.getValue());
   services::settings::saveFromPortal(
     s_param_footer.getValue(), s_param_weather.getValue(),
     s_param_fahrenheit.getValue(),
@@ -492,6 +513,7 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String longitude = web.arg("radar_lon");
   const String miles = web.arg("use_miles");
   const String runways = web.arg("show_runways");
+  const String range_index = web.arg("range_index");
   const String footer = web.arg("show_footer");
   const String weather = web.arg("show_weather");
   const String fahrenheit = web.arg("temp_f");
@@ -532,6 +554,7 @@ void savePortalParamsFromRequest(WebServer& web) {
   }
   ui::radar::saveMilesFromPortal(miles.c_str());
   ui::radar::saveRunwaysFromPortal(runways.c_str());
+  ui::radar::saveRangeFromPortal(range_index.c_str());
   services::settings::saveFromPortal(
     footer.c_str(), weather.c_str(), fahrenheit.c_str(),
     altitude_metres.c_str(), clock24.c_str(),
@@ -592,6 +615,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_lon);
   wm.addParameter(&s_param_miles);
   wm.addParameter(&s_param_runways);
+  wm.addParameter(&s_param_range);
   wm.addParameter(&s_param_footer);
   wm.addParameter(&s_param_weather);
   wm.addParameter(&s_param_fahrenheit);
