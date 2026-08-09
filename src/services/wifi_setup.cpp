@@ -135,7 +135,7 @@ void handleDisplayPage() {
                     "<main><h2>Plane Radar Display</h2>"
                     "<img id='display' src='/display.bmp'>"
                     "<script>setInterval(function(){document.getElementById('display').src="
-                    "'/display.bmp?t='+Date.now()},1000);</script>"
+                    "'/display.bmp?t='+Date.now()},5000);</script>"
                     "<br><a href='/'>Home</a></main></body></html>");
 }
 
