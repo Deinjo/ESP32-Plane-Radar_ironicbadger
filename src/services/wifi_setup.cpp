@@ -19,6 +19,7 @@
 #include "services/ota_update.h"
 #include "services/radar_location.h"
 #include "ui/radar_range.h"
+#include "ui/radar_display.h"
 #include "ui/status_screens.h"
 
 portMUX_TYPE s_boot_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -113,6 +114,40 @@ void startLanWebPortal();
 void stopLanWebPortal();
 bool wifiLinkUp();
 void attachSettingsRoutes();
+
+void handleDisplayPage() {
+  if (!s_wm.server) {
+    return;
+  }
+  s_wm.server->send(200, "text/html",
+                    "<!doctype html><html><head><meta name='viewport' "
+                    "content='width=device-width,initial-scale=1'>"
+                    "<title>Plane Radar Display</title><style>"
+                    "body{margin:0;padding:20px;background:#0d151e;color:#d7e0e9;"
+                    "font-family:Segoe UI,Arial,sans-serif;text-align:center}"
+                    "main{max-width:520px;margin:auto;background:#141f2a;"
+                    "padding:20px;border:1px solid #2a3a49;border-radius:12px}"
+                    "img{width:min(100%,480px);height:auto;image-rendering:auto;"
+                    "border:1px solid #526577;border-radius:8px}"
+                    "a{display:inline-block;margin-top:16px;padding:8px 13px;"
+                    "background:#38596b;color:#eef5f8;border:1px solid #5e8191;"
+                    "border-radius:6px;text-decoration:none}</style></head><body>"
+                    "<main><h2>Plane Radar Display</h2>"
+                    "<img id='display' src='/display.bmp'>"
+                    "<script>setInterval(function(){document.getElementById('display').src="
+                    "'/display.bmp?t='+Date.now()},1000);</script>"
+                    "<br><a href='/'>Home</a></main></body></html>");
+}
+
+void handleDisplayBmp() {
+  if (!s_wm.server) {
+    return;
+  }
+  constexpr size_t kBmpSize = 54 + 240 * 240 * 3;
+  s_wm.server->setContentLength(kBmpSize);
+  s_wm.server->send(200, "image/bmp", "");
+  ui::radarDisplayWriteBmp(s_wm.server->client());
+}
 
 constexpr int kCoordParamLen = 20;
 constexpr char kLatitudeInputAttrs[] =
@@ -638,6 +673,8 @@ void attachSettingsRoutes() {
   s_wm.server->on("/favicon.ico", HTTP_GET, []() {
     s_wm.server->send(204, "text/plain", "");
   });
+  s_wm.server->on("/display", HTTP_GET, handleDisplayPage);
+  s_wm.server->on("/display.bmp", HTTP_GET, handleDisplayBmp);
   // Register before WiFiManager's built-in /paramsave handler so the custom
   // confirmation can redirect back to Setup.
   s_wm.server->on("/paramsave", HTTP_POST, handleSettingsSaved);

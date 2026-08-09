@@ -1236,4 +1236,50 @@ void radarDisplayTick() {
   }
 }
 
+void radarDisplayWriteBmp(Print& output) {
+  constexpr int kBmpWidth = radar::kSize;
+  constexpr int kBmpHeight = radar::kSize;
+  constexpr uint32_t kHeaderSize = 54;
+  constexpr uint32_t kRowSize = kBmpWidth * 3;
+  constexpr uint32_t kImageSize = kRowSize * kBmpHeight;
+  constexpr uint32_t kFileSize = kHeaderSize + kImageSize;
+
+  uint8_t header[kHeaderSize] = {};
+  header[0] = 'B';
+  header[1] = 'M';
+  auto put32 = [&header](size_t offset, uint32_t value) {
+    header[offset] = static_cast<uint8_t>(value);
+    header[offset + 1] = static_cast<uint8_t>(value >> 8);
+    header[offset + 2] = static_cast<uint8_t>(value >> 16);
+    header[offset + 3] = static_cast<uint8_t>(value >> 24);
+  };
+  put32(2, kFileSize);
+  put32(10, kHeaderSize);
+  put32(14, 40);
+  put32(18, kBmpWidth);
+  put32(22, kBmpHeight);
+  header[26] = 1;
+  header[28] = 24;
+  put32(34, kImageSize);
+  output.write(header, sizeof(header));
+
+  const bool black = nightModeActive();
+  uint8_t row[kRowSize];
+  for (int y = kBmpHeight - 1; y >= 0; --y) {
+    for (int x = 0; x < kBmpWidth; ++x) {
+      uint16_t pixel = 0;
+      if (!black && s_frame_ready) {
+        pixel = s_frame.readPixel(x, y);
+      }
+      const uint8_t red = static_cast<uint8_t>((pixel >> 11) & 0x1F);
+      const uint8_t green = static_cast<uint8_t>((pixel >> 5) & 0x3F);
+      const uint8_t blue = static_cast<uint8_t>(pixel & 0x1F);
+      row[x * 3] = static_cast<uint8_t>((blue << 3) | (blue >> 2));
+      row[x * 3 + 1] = static_cast<uint8_t>((green << 2) | (green >> 4));
+      row[x * 3 + 2] = static_cast<uint8_t>((red << 3) | (red >> 2));
+    }
+    output.write(row, sizeof(row));
+  }
+}
+
 }  // namespace ui
