@@ -19,6 +19,9 @@ constexpr char kKeyAltitudeMetres[] = "altM";
 constexpr char kKeyClock24[] = "time24";
 constexpr char kKeyTextScale[] = "fontPct";
 constexpr char kKeyBrightness[] = "bright";
+constexpr char kKeyNightEnabled[] = "nightOn";
+constexpr char kKeyNightStart[] = "nightStart";
+constexpr char kKeyNightEnd[] = "nightEnd";
 constexpr char kKeyOtaPassword[] = "otaPass";
 constexpr char kKeyColorBackground[] = "colBg";
 constexpr char kKeyColorGrid[] = "colGrid";
@@ -55,6 +58,9 @@ bool s_altitude_metres = false;
 bool s_use_24_hour_clock = true;
 int s_text_scale_percent = kTextScaleDefaultPercent;
 uint8_t s_brightness = 255;
+bool s_night_enabled = false;
+uint16_t s_night_start = 22 * 60;
+uint16_t s_night_end = 7 * 60;
 
 uint32_t s_colors[] = {
     0x040A1Cu, 0x106420u, 0xFFFFFFu, 0xFFFFFFu, 0xFF0000u,
@@ -155,6 +161,26 @@ bool parseBrightness(const char* value, uint8_t* result) {
   return true;
 }
 
+bool parseTimeMinute(const char* value, uint16_t* result) {
+  if (value == nullptr || result == nullptr || std::strlen(value) != 5 ||
+      value[2] != ':') {
+    return false;
+  }
+  if (!std::isdigit(static_cast<unsigned char>(value[0])) ||
+      !std::isdigit(static_cast<unsigned char>(value[1])) ||
+      !std::isdigit(static_cast<unsigned char>(value[3])) ||
+      !std::isdigit(static_cast<unsigned char>(value[4]))) {
+    return false;
+  }
+  const int hour = (value[0] - '0') * 10 + value[1] - '0';
+  const int minute = (value[3] - '0') * 10 + value[4] - '0';
+  if (hour > 23 || minute > 59) {
+    return false;
+  }
+  *result = static_cast<uint16_t>(hour * 60 + minute);
+  return true;
+}
+
 bool parseColor(const char* value, uint32_t* result) {
   if (value == nullptr || result == nullptr || value[0] != '#' ||
       std::strlen(value) != 7) {
@@ -190,6 +216,9 @@ void loadDefaults() {
   s_use_24_hour_clock = true;
   s_text_scale_percent = kTextScaleDefaultPercent;
   s_brightness = 255;
+  s_night_enabled = false;
+  s_night_start = 22 * 60;
+  s_night_end = 7 * 60;
   std::memcpy(s_colors, kDefaultColors, sizeof(s_colors));
   for (bool& value : s_visibility) {
     value = true;
@@ -208,6 +237,9 @@ void persist() {
   prefs.putBool(kKeyClock24, s_use_24_hour_clock);
   prefs.putInt(kKeyTextScale, s_text_scale_percent);
   prefs.putUChar(kKeyBrightness, s_brightness);
+  prefs.putBool(kKeyNightEnabled, s_night_enabled);
+  prefs.putUShort(kKeyNightStart, s_night_start);
+  prefs.putUShort(kKeyNightEnd, s_night_end);
   prefs.putString(kKeyOtaPassword, s_ota_password);
   prefs.putULong(kKeyColorBackground, s_colors[0]);
   prefs.putULong(kKeyColorGrid, s_colors[1]);
@@ -257,6 +289,11 @@ void init() {
       prefs.getInt(kKeyTextScale, kTextScaleDefaultPercent));
   const uint8_t saved_brightness = prefs.getUChar(kKeyBrightness, 255);
   s_brightness = saved_brightness >= 10 ? saved_brightness : 255;
+  s_night_enabled = prefs.getBool(kKeyNightEnabled, false);
+  s_night_start = prefs.getUShort(kKeyNightStart, 22 * 60);
+  s_night_end = prefs.getUShort(kKeyNightEnd, 7 * 60);
+  if (s_night_start >= 24 * 60) s_night_start = 22 * 60;
+  if (s_night_end >= 24 * 60) s_night_end = 7 * 60;
   const char* color_keys[] = {
       kKeyColorBackground, kKeyColorGrid, kKeyColorLabel, kKeyColorCenter,
       kKeyColorAircraft, kKeyColorTrack, kKeyColorTagType,
@@ -296,6 +333,25 @@ int textScalePercent() { return s_text_scale_percent; }
 
 uint8_t brightness() { return s_brightness; }
 
+bool nightModeEnabled() { return s_night_enabled; }
+
+uint16_t nightStartMinute() { return s_night_start; }
+
+uint16_t nightEndMinute() { return s_night_end; }
+
+bool nightModeActive(int local_minute) {
+  if (!s_night_enabled || local_minute < 0 || local_minute >= 24 * 60) {
+    return false;
+  }
+  if (s_night_start == s_night_end) {
+    return true;
+  }
+  if (s_night_start < s_night_end) {
+    return local_minute >= s_night_start && local_minute < s_night_end;
+  }
+  return local_minute >= s_night_start || local_minute < s_night_end;
+}
+
 const char* otaPassword() { return s_ota_password; }
 
 uint32_t color(ColorId id) {
@@ -320,7 +376,10 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                     const char* clock24_checkbox,
                     const char* text_scale_percent_value,
                     const char* ota_password_value,
-                    const char* brightness_value) {
+                    const char* brightness_value,
+                    const char* night_enabled_checkbox,
+                    const char* night_start_value,
+                    const char* night_end_value) {
   s_footer_enabled = checkboxChecked(footer_checkbox);
   s_weather_enabled = checkboxChecked(weather_checkbox);
   s_temperature_fahrenheit = checkboxChecked(fahrenheit_checkbox);
@@ -333,6 +392,14 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
   uint8_t parsed_brightness = 0;
   if (parseBrightness(brightness_value, &parsed_brightness)) {
     s_brightness = parsed_brightness;
+  }
+  s_night_enabled = checkboxChecked(night_enabled_checkbox);
+  uint16_t parsed_time = 0;
+  if (parseTimeMinute(night_start_value, &parsed_time)) {
+    s_night_start = parsed_time;
+  }
+  if (parseTimeMinute(night_end_value, &parsed_time)) {
+    s_night_end = parsed_time;
   }
 
   char password[kOtaPasswordMaxLen + 1] = {};

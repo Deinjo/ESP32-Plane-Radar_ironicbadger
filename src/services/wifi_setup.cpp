@@ -203,6 +203,15 @@ WiFiManagerParameter s_param_brightness_output(
     "<script>(function(){var s=document.getElementById('brightness'),"
     "o=document.getElementById('brightness_value');"
     "if(s&&o)o.value=s.value;})();</script>");
+char s_night_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_night_enabled(
+    "night_enabled", "Enable night mode", "T", 2,
+    s_night_checkbox_attrs, WFM_LABEL_AFTER);
+constexpr char kNightTimeAttrs[] = "type=\"time\"";
+WiFiManagerParameter s_param_night_start(
+    "night_start", "Night mode start", "22:00", 6, kNightTimeAttrs);
+WiFiManagerParameter s_param_night_end(
+    "night_end", "Night mode end", "07:00", 6, kNightTimeAttrs);
 
 constexpr char kColorInputAttrs[] = "type=\"color\"";
 constexpr int kColorInputLen = 8;
@@ -428,6 +437,19 @@ void refreshPortalParamDefaults() {
   snprintf(brightness_buf, sizeof(brightness_buf), "%u",
            static_cast<unsigned>(services::settings::brightness()));
   s_param_brightness.setValue(brightness_buf, kBrightnessParamLen);
+  refreshCheckboxAttrs(s_night_checkbox_attrs, sizeof(s_night_checkbox_attrs),
+                       services::settings::nightModeEnabled());
+  s_param_night_enabled.setValue("T", 2);
+  char night_start_buf[6];
+  char night_end_buf[6];
+  snprintf(night_start_buf, sizeof(night_start_buf), "%02u:%02u",
+           services::settings::nightStartMinute() / 60,
+           services::settings::nightStartMinute() % 60);
+  snprintf(night_end_buf, sizeof(night_end_buf), "%02u:%02u",
+           services::settings::nightEndMinute() / 60,
+           services::settings::nightEndMinute() % 60);
+  s_param_night_start.setValue(night_start_buf, 6);
+  s_param_night_end.setValue(night_end_buf, 6);
   s_param_ota_password.setValue("", kOtaPasswordParamLen);
 
   const auto setColor = [](WiFiManagerParameter& param,
@@ -508,7 +530,8 @@ void onPortalParamsSaved() {
     s_param_clock24.getValue(),
     s_param_text_scale.getValue(),
     s_param_ota_password.getValue(),
-    s_param_brightness.getValue());
+    s_param_brightness.getValue(), s_param_night_enabled.getValue(),
+    s_param_night_start.getValue(), s_param_night_end.getValue());
   displaySetBrightness(services::settings::brightness());
   services::settings::saveColorsFromPortal(
       s_param_color_background.getValue(), s_param_color_grid.getValue(),
@@ -541,6 +564,9 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String text_scale = web.arg("text_scale");
   const String ota_password = web.arg("ota_password");
   const String brightness = web.arg("brightness");
+  const String night_enabled = web.arg("night_enabled");
+  const String night_start = web.arg("night_start");
+  const String night_end = web.arg("night_end");
   const String color_background = web.arg("color_bg");
   const String color_grid = web.arg("color_grid");
   const String color_label = web.arg("color_label");
@@ -578,7 +604,8 @@ void savePortalParamsFromRequest(WebServer& web) {
   services::settings::saveFromPortal(
     footer.c_str(), weather.c_str(), fahrenheit.c_str(),
     altitude_metres.c_str(), clock24.c_str(),
-    text_scale.c_str(), ota_password.c_str(), brightness.c_str());
+    text_scale.c_str(), ota_password.c_str(), brightness.c_str(),
+    night_enabled.c_str(), night_start.c_str(), night_end.c_str());
   displaySetBrightness(services::settings::brightness());
   services::settings::saveColorsFromPortal(
       color_background.c_str(), color_grid.c_str(), color_label.c_str(),
@@ -654,6 +681,9 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_text_scale_output);
   wm.addParameter(&s_param_brightness);
   wm.addParameter(&s_param_brightness_output);
+  wm.addParameter(&s_param_night_enabled);
+  wm.addParameter(&s_param_night_start);
+  wm.addParameter(&s_param_night_end);
   wm.addParameter(&s_param_ota_password);
   wm.addParameter(&s_param_color_group_general);
   wm.addParameter(&s_param_color_background);

@@ -8,4 +8,7 @@ void radarDisplayDraw();
 /** Redraw aircraft only (blits cached grid; no full-screen clear). */
 void radarDisplayRefreshAircraft();
 
+/** Update the display when the configured night-mode boundary is crossed. */
+void radarDisplayTick();
+
 }  // namespace ui

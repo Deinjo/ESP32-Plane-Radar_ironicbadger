@@ -62,6 +62,8 @@ int s_scale_label_h = 0;
 lgfx::LovyanGFX* s_draw = &tft;
 LGFX_Sprite s_frame(&tft);
 bool s_frame_ready = false;
+bool s_night_mode_known = false;
+bool s_last_night_mode = false;
 
 class DrawScope {
  public:
@@ -1178,7 +1180,20 @@ void renderFrame() {
 
 }  // namespace
 
+bool nightModeActive() {
+  return services::settings::nightModeActive(
+      services::weather::localMinuteOfDay());
+}
+
 void radarDisplayDraw() {
+  const bool night = nightModeActive();
+  s_night_mode_known = true;
+  s_last_night_mode = night;
+  if (night) {
+    tft.fillScreen(0x0000);
+    return;
+  }
+
   initPalette();
   initLabelMetrics();
 
@@ -1196,6 +1211,9 @@ void radarDisplayDraw() {
 }
 
 void radarDisplayRefreshAircraft() {
+  if (nightModeActive()) {
+    return;
+  }
   initPalette();
 
   if (ensureFrameSprite()) {
@@ -1204,6 +1222,18 @@ void radarDisplayRefreshAircraft() {
   }
 
   radarDisplayDraw();
+}
+
+void radarDisplayTick() {
+  const bool night = nightModeActive();
+  if (!s_night_mode_known) {
+    s_night_mode_known = true;
+    s_last_night_mode = night;
+    return;
+  }
+  if (night != s_last_night_mode) {
+    radarDisplayDraw();
+  }
 }
 
 }  // namespace ui

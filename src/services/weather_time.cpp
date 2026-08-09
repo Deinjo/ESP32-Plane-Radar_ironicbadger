@@ -180,6 +180,16 @@ bool refreshIfDue(double latitude, double longitude, bool force) {
 
 bool valid() { return s_valid; }
 
+int localMinuteOfDay() {
+  if (!clockValid()) {
+    return -1;
+  }
+  const time_t local_epoch = time(nullptr) + s_utc_offset_seconds;
+  struct tm local = {};
+  gmtime_r(&local_epoch, &local);
+  return local.tm_hour * 60 + local.tm_min;
+}
+
 void formatWeatherLine(char* out, size_t out_len) {
   if (out_len == 0) {
     return;

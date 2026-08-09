@@ -17,6 +17,8 @@ void setPollFn(PollFn fn);
 bool refreshIfDue(double latitude, double longitude, bool force = false);
 
 bool valid();
+/** Current local minute of day, or -1 while the clock is not valid. */
+int localMinuteOfDay();
 void formatWeatherLine(char* out, size_t out_len);
 void formatDateTimeLine(char* out, size_t out_len);
 

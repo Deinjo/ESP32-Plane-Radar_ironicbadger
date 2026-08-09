@@ -92,6 +92,9 @@ void setup() {
 void loop() {
   handleBootButton();
   wifiLoop();
+  if (g_radar_visible) {
+    ui::radarDisplayTick();
+  }
 
   if (services::ota::inProgress()) {
     delay(10);

@@ -20,6 +20,10 @@ bool altitudeMetres();
 bool use24HourClock();
 int textScalePercent();
 uint8_t brightness();
+bool nightModeEnabled();
+uint16_t nightStartMinute();
+uint16_t nightEndMinute();
+bool nightModeActive(int local_minute);
 const char* otaPassword();
 
 enum class ColorId : uint8_t {
@@ -69,7 +73,10 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                      const char* clock24_checkbox,
                      const char* text_scale_percent_value,
                      const char* ota_password_value,
-                     const char* brightness_value);
+                     const char* brightness_value,
+                     const char* night_enabled_checkbox,
+                     const char* night_start_value,
+                     const char* night_end_value);
 
 /** Store HTML color input values as persistent 0xRRGGBB colors. */
 void saveColorsFromPortal(const char* background, const char* grid,
