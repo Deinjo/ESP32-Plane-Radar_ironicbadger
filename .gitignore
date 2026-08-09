@@ -15,3 +15,4 @@ include/config_local.h
 # temporäre Tool-Daten nicht in GitHub nutzen
 /tools/GetRoadsAndWaterForPlaneRadar/display_output/
 /tools/GetRoadsAndWaterForPlaneRadar/data
+/tools/GetRoadsAndWaterForPlaneRadar/__pycache__/
