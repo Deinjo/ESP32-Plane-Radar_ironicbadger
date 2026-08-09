@@ -35,7 +35,7 @@ Wird `--motorway` weggelassen, fragt das Skript automatisch alle Wege mit
 
 ```powershell
 python .\download_a1_motorways.py `
-    --radius 52000 `
+    --radius 29990 `
     --latitude 51.48415698 `
     --longitude 7.41573987
 ```
@@ -54,7 +54,7 @@ Mit `--output-dir` kann ein Zielordner fuer diese Dateien angegeben werden:
 
 ```powershell
 python .\download_a1_motorways.py `
-    --radius 52000 `
+    --radius 29990 `
     --latitude 51.48415698 `
     --longitude 7.41573987 `
     --output-dir .\data
@@ -65,7 +65,7 @@ der A52 bei Essen, beruecksichtigt werden sollen:
 
 ```powershell
 python .\download_a1_motorways.py `
-    --radius 52000 `
+    --radius 29990 `
     --latitude 51.48415698 `
     --longitude 7.41573987 `
     --include-trunk `
@@ -80,7 +80,7 @@ Bundesstrassen koennen zusaetzlich mit `--include-federal-roads` geladen werden:
 
 ```powershell
 python .\download_a1_motorways.py `
-    --radius 52000 `
+    --radius 29990 `
     --latitude 51.48415698 `
     --longitude 7.41573987 `
     --include-federal-roads `
@@ -263,14 +263,31 @@ python .\reduce_motorways_for_display.py `
 
 ## Wasser reduzieren
 
-Der Wasser-Downloader verwendet standardmaessig eine kuratierte Namensliste:
-Ruhr, Dortmund-Ems-Kanal, Dortmunder Hafen, Kemnader See, Phoenix-See,
-Harkort-See, Datteln-Hamm-Kanal und Rhein-Herne-Kanal. Dadurch werden kleine
-und unbedeutende Gewaesser nicht erst heruntergeladen.
+Der Wasser-Downloader verwendet standardmaessig die kuratierte Namensliste aus:
+
+```text
+input\WaterNames.txt
+```
+
+Die Datei enthaelt einen Gewaessernamen je Zeile. Dadurch werden kleine und
+unbedeutende Gewaesser nicht erst heruntergeladen.
+
+Die Namensliste kann fuer einen neuen Mittelpunkt und Radius automatisch
+vorbereitet werden:
+
+```powershell
+python .\discover_water_names.py `
+    --radius 29990 `
+    --latitude 51.48415698 `
+    --longitude 7.41573987 `
+    --output .\input\WaterNames.txt
+```
+
+Danach kann `WaterNames.txt` manuell bereinigt werden.
 
 ```powershell
 python .\download_water_features.py `
-    --radius 52000 `
+    --radius 29990 `
     --latitude 51.48415698 `
     --longitude 7.41573987 `
     --output .\data\water_features.json
@@ -357,7 +374,7 @@ Mittelpunkt des Suchbereichs:
 ```powershell
 python .\download_a1_motorways.py `
     --motorway A1 `
-    --radius 52000 `
+    --radius 29990 `
     --latitude 51.48415698 `
     --longitude 7.41573987
 ```
