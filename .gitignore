@@ -13,5 +13,5 @@ include/config_local.h
 /tools/output/
 
 # temporäre Tool-Daten nicht in GitHub nutzen
-/GetRoadsAndWaterForPlaneRadar/display_output/
-/GetRoadsAndWaterForPlaneRadar/data
+/tools/GetRoadsAndWaterForPlaneRadar/display_output/
+/tools/GetRoadsAndWaterForPlaneRadar/data
