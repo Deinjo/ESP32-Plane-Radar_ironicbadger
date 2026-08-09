@@ -146,7 +146,8 @@ void handleDisplayBmp() {
   constexpr size_t kBmpSize = 54 + 240 * 240 * 3;
   s_wm.server->setContentLength(kBmpSize);
   s_wm.server->send(200, "image/bmp", "");
-  ui::radarDisplayWriteBmp(s_wm.server->client());
+  WiFiClient client = s_wm.server->client();
+  ui::radarDisplayWriteBmp(client);
 }
 
 constexpr int kCoordParamLen = 20;
