@@ -18,7 +18,6 @@ constexpr char kKeyFahrenheit[] = "tempF";
 constexpr char kKeyAltitudeMetres[] = "altM";
 constexpr char kKeyClock24[] = "time24";
 constexpr char kKeyTextScale[] = "fontPct";
-constexpr char kKeyBrightness[] = "bright";
 constexpr char kKeyNightEnabled[] = "nightOn";
 constexpr char kKeyNightStart[] = "nightStart";
 constexpr char kKeyNightEnd[] = "nightEnd";
@@ -57,7 +56,6 @@ bool s_temperature_fahrenheit = false;
 bool s_altitude_metres = false;
 bool s_use_24_hour_clock = true;
 int s_text_scale_percent = kTextScaleDefaultPercent;
-uint8_t s_brightness = 255;
 bool s_night_enabled = false;
 uint16_t s_night_start = 22 * 60;
 uint16_t s_night_end = 7 * 60;
@@ -148,19 +146,6 @@ bool parseTextScalePercent(const char* value, int* result) {
   return true;
 }
 
-bool parseBrightness(const char* value, uint8_t* result) {
-  if (value == nullptr || value[0] == '\0' || result == nullptr) {
-    return false;
-  }
-  char* end = nullptr;
-  const long parsed = std::strtol(value, &end, 10);
-  if (end == value || *end != '\0' || parsed < 10 || parsed > 255) {
-    return false;
-  }
-  *result = static_cast<uint8_t>(parsed);
-  return true;
-}
-
 bool parseTimeMinute(const char* value, uint16_t* result) {
   if (value == nullptr || result == nullptr || std::strlen(value) != 5 ||
       value[2] != ':') {
@@ -215,7 +200,6 @@ void loadDefaults() {
   s_altitude_metres = false;
   s_use_24_hour_clock = true;
   s_text_scale_percent = kTextScaleDefaultPercent;
-  s_brightness = 255;
   s_night_enabled = false;
   s_night_start = 22 * 60;
   s_night_end = 7 * 60;
@@ -236,7 +220,6 @@ void persist() {
   prefs.putBool(kKeyAltitudeMetres, s_altitude_metres);
   prefs.putBool(kKeyClock24, s_use_24_hour_clock);
   prefs.putInt(kKeyTextScale, s_text_scale_percent);
-  prefs.putUChar(kKeyBrightness, s_brightness);
   prefs.putBool(kKeyNightEnabled, s_night_enabled);
   prefs.putUShort(kKeyNightStart, s_night_start);
   prefs.putUShort(kKeyNightEnd, s_night_end);
@@ -287,8 +270,6 @@ void init() {
   s_use_24_hour_clock = prefs.getBool(kKeyClock24, true);
   s_text_scale_percent = clampTextScalePercent(
       prefs.getInt(kKeyTextScale, kTextScaleDefaultPercent));
-  const uint8_t saved_brightness = prefs.getUChar(kKeyBrightness, 255);
-  s_brightness = saved_brightness >= 10 ? saved_brightness : 255;
   s_night_enabled = prefs.getBool(kKeyNightEnabled, false);
   s_night_start = prefs.getUShort(kKeyNightStart, 22 * 60);
   s_night_end = prefs.getUShort(kKeyNightEnd, 7 * 60);
@@ -330,8 +311,6 @@ bool altitudeMetres() { return s_altitude_metres; }
 bool use24HourClock() { return s_use_24_hour_clock; }
 
 int textScalePercent() { return s_text_scale_percent; }
-
-uint8_t brightness() { return s_brightness; }
 
 bool nightModeEnabled() { return s_night_enabled; }
 
@@ -376,7 +355,6 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                     const char* clock24_checkbox,
                     const char* text_scale_percent_value,
                     const char* ota_password_value,
-                    const char* brightness_value,
                     const char* night_enabled_checkbox,
                     const char* night_start_value,
                     const char* night_end_value) {
@@ -388,10 +366,6 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
   int text_scale_percent = s_text_scale_percent;
   if (parseTextScalePercent(text_scale_percent_value, &text_scale_percent)) {
     s_text_scale_percent = text_scale_percent;
-  }
-  uint8_t parsed_brightness = 0;
-  if (parseBrightness(brightness_value, &parsed_brightness)) {
-    s_brightness = parsed_brightness;
   }
   s_night_enabled = checkboxChecked(night_enabled_checkbox);
   uint16_t parsed_time = 0;
