@@ -14,6 +14,7 @@
 #endif
 
 #include "config.h"
+#include "hardware/display.h"
 #include "services/display_settings.h"
 #include "services/ota_update.h"
 #include "services/radar_location.h"
@@ -121,6 +122,7 @@ constexpr char kLongitudeInputAttrs[] =
 constexpr int kOtaPasswordParamLen =
     static_cast<int>(services::settings::kOtaPasswordMaxLen);
 constexpr int kTextScaleParamLen = 4;
+constexpr int kBrightnessParamLen = 4;
 
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
                                 kCoordParamLen, kLatitudeInputAttrs);
@@ -135,10 +137,19 @@ WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T"
                                      s_runways_checkbox_attrs, WFM_LABEL_AFTER);
 constexpr char kRangeInputAttrs[] =
     "type=\"range\" min=\"0\" max=\"3\" step=\"1\" "
-    "title=\"5 km / 10 km / 15 km / 25 km\"";
+    "title=\"5 km / 10 km / 15 km / 25 km\" "
+    "oninput=\"document.getElementById('range_value').value="
+    "['5 km','10 km','15 km','25 km'][this.value]\"";
 WiFiManagerParameter s_param_range(
     "range_index", "Radar range (5 / 10 / 15 / 25 km)", "1", 2,
-                                   kRangeInputAttrs);
+    kRangeInputAttrs);
+WiFiManagerParameter s_param_range_break("<br/>");
+WiFiManagerParameter s_param_range_output(
+    "<div style=\"text-align:center;margin-top:-5px\">"
+    "<output id=\"range_value\">10 km</output></div>"
+    "<script>(function(){var s=document.getElementById('range_index'),"
+    "o=document.getElementById('range_value'),v=['5 km','10 km','15 km','25 km'];"
+    "if(s&&o)o.value=v[s.value]||'10 km';})();</script>");
 
 char s_footer_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_footer("show_footer", "Show weather and clock", "T",
@@ -180,6 +191,18 @@ WiFiManagerParameter s_param_text_scale_output(
     "<script>(function(){var s=document.getElementById('text_scale'),"
     "o=document.getElementById('text_scale_value');"
       "if(s&&o)o.value=s.value+'%';})();</script>");
+constexpr char kBrightnessAttrs[] =
+    "type=\"range\" min=\"10\" max=\"255\" step=\"5\" "
+    "oninput=\"document.getElementById('brightness_value').value=this.value\"";
+WiFiManagerParameter s_param_brightness(
+    "brightness", "Display brightness", "255", kBrightnessParamLen,
+    kBrightnessAttrs);
+WiFiManagerParameter s_param_brightness_output(
+    "<div style=\"text-align:center;margin-top:-5px\">"
+    "<output id=\"brightness_value\">255</output></div>"
+    "<script>(function(){var s=document.getElementById('brightness'),"
+    "o=document.getElementById('brightness_value');"
+    "if(s&&o)o.value=s.value;})();</script>");
 
 constexpr char kColorInputAttrs[] = "type=\"color\"";
 constexpr int kColorInputLen = 8;
@@ -401,6 +424,10 @@ void refreshPortalParamDefaults() {
   snprintf(text_scale_buf, sizeof(text_scale_buf), "%d",
            services::settings::textScalePercent());
   s_param_text_scale.setValue(text_scale_buf, kTextScaleParamLen);
+  char brightness_buf[kBrightnessParamLen + 1];
+  snprintf(brightness_buf, sizeof(brightness_buf), "%u",
+           static_cast<unsigned>(services::settings::brightness()));
+  s_param_brightness.setValue(brightness_buf, kBrightnessParamLen);
   s_param_ota_password.setValue("", kOtaPasswordParamLen);
 
   const auto setColor = [](WiFiManagerParameter& param,
@@ -480,7 +507,9 @@ void onPortalParamsSaved() {
     s_param_altitude_metres.getValue(),
     s_param_clock24.getValue(),
     s_param_text_scale.getValue(),
-    s_param_ota_password.getValue());
+    s_param_ota_password.getValue(),
+    s_param_brightness.getValue());
+  displaySetBrightness(services::settings::brightness());
   services::settings::saveColorsFromPortal(
       s_param_color_background.getValue(), s_param_color_grid.getValue(),
       s_param_color_label.getValue(), s_param_color_center.getValue(),
@@ -511,6 +540,7 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String clock24 = web.arg("clock_24");
   const String text_scale = web.arg("text_scale");
   const String ota_password = web.arg("ota_password");
+  const String brightness = web.arg("brightness");
   const String color_background = web.arg("color_bg");
   const String color_grid = web.arg("color_grid");
   const String color_label = web.arg("color_label");
@@ -548,7 +578,8 @@ void savePortalParamsFromRequest(WebServer& web) {
   services::settings::saveFromPortal(
     footer.c_str(), weather.c_str(), fahrenheit.c_str(),
     altitude_metres.c_str(), clock24.c_str(),
-    text_scale.c_str(), ota_password.c_str());
+    text_scale.c_str(), ota_password.c_str(), brightness.c_str());
+  displaySetBrightness(services::settings::brightness());
   services::settings::saveColorsFromPortal(
       color_background.c_str(), color_grid.c_str(), color_label.c_str(),
       color_center.c_str(), color_aircraft.c_str(), color_track.c_str(),
@@ -610,7 +641,9 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_lon);
   wm.addParameter(&s_param_miles);
   wm.addParameter(&s_param_runways);
+  wm.addParameter(&s_param_range_break);
   wm.addParameter(&s_param_range);
+  wm.addParameter(&s_param_range_output);
   wm.addParameter(&s_param_footer);
   wm.addParameter(&s_param_weather);
   wm.addParameter(&s_param_fahrenheit);
@@ -619,6 +652,8 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_after_clock_break);
   wm.addParameter(&s_param_text_scale);
   wm.addParameter(&s_param_text_scale_output);
+  wm.addParameter(&s_param_brightness);
+  wm.addParameter(&s_param_brightness_output);
   wm.addParameter(&s_param_ota_password);
   wm.addParameter(&s_param_color_group_general);
   wm.addParameter(&s_param_color_background);

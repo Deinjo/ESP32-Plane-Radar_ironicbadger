@@ -80,6 +80,7 @@ void setup() {
   services::location::init();
   ui::radar::rangeInit();
   services::settings::init();
+  displaySetBrightness(services::settings::brightness());
   services::adsb::setPollFn(wifiLoop);
   services::weather::setPollFn(wifiLoop);
 

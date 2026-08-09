@@ -18,6 +18,7 @@ constexpr char kKeyFahrenheit[] = "tempF";
 constexpr char kKeyAltitudeMetres[] = "altM";
 constexpr char kKeyClock24[] = "time24";
 constexpr char kKeyTextScale[] = "fontPct";
+constexpr char kKeyBrightness[] = "bright";
 constexpr char kKeyOtaPassword[] = "otaPass";
 constexpr char kKeyColorBackground[] = "colBg";
 constexpr char kKeyColorGrid[] = "colGrid";
@@ -53,6 +54,7 @@ bool s_temperature_fahrenheit = false;
 bool s_altitude_metres = false;
 bool s_use_24_hour_clock = true;
 int s_text_scale_percent = kTextScaleDefaultPercent;
+uint8_t s_brightness = 255;
 
 uint32_t s_colors[] = {
     0x040A1Cu, 0x106420u, 0xFFFFFFu, 0xFFFFFFu, 0xFF0000u,
@@ -140,6 +142,19 @@ bool parseTextScalePercent(const char* value, int* result) {
   return true;
 }
 
+bool parseBrightness(const char* value, uint8_t* result) {
+  if (value == nullptr || value[0] == '\0' || result == nullptr) {
+    return false;
+  }
+  char* end = nullptr;
+  const long parsed = std::strtol(value, &end, 10);
+  if (end == value || *end != '\0' || parsed < 10 || parsed > 255) {
+    return false;
+  }
+  *result = static_cast<uint8_t>(parsed);
+  return true;
+}
+
 bool parseColor(const char* value, uint32_t* result) {
   if (value == nullptr || result == nullptr || value[0] != '#' ||
       std::strlen(value) != 7) {
@@ -174,6 +189,7 @@ void loadDefaults() {
   s_altitude_metres = false;
   s_use_24_hour_clock = true;
   s_text_scale_percent = kTextScaleDefaultPercent;
+  s_brightness = 255;
   std::memcpy(s_colors, kDefaultColors, sizeof(s_colors));
   for (bool& value : s_visibility) {
     value = true;
@@ -191,6 +207,7 @@ void persist() {
   prefs.putBool(kKeyAltitudeMetres, s_altitude_metres);
   prefs.putBool(kKeyClock24, s_use_24_hour_clock);
   prefs.putInt(kKeyTextScale, s_text_scale_percent);
+  prefs.putUChar(kKeyBrightness, s_brightness);
   prefs.putString(kKeyOtaPassword, s_ota_password);
   prefs.putULong(kKeyColorBackground, s_colors[0]);
   prefs.putULong(kKeyColorGrid, s_colors[1]);
@@ -238,6 +255,8 @@ void init() {
   s_use_24_hour_clock = prefs.getBool(kKeyClock24, true);
   s_text_scale_percent = clampTextScalePercent(
       prefs.getInt(kKeyTextScale, kTextScaleDefaultPercent));
+  const uint8_t saved_brightness = prefs.getUChar(kKeyBrightness, 255);
+  s_brightness = saved_brightness >= 10 ? saved_brightness : 255;
   const char* color_keys[] = {
       kKeyColorBackground, kKeyColorGrid, kKeyColorLabel, kKeyColorCenter,
       kKeyColorAircraft, kKeyColorTrack, kKeyColorTagType,
@@ -275,6 +294,8 @@ bool use24HourClock() { return s_use_24_hour_clock; }
 
 int textScalePercent() { return s_text_scale_percent; }
 
+uint8_t brightness() { return s_brightness; }
+
 const char* otaPassword() { return s_ota_password; }
 
 uint32_t color(ColorId id) {
@@ -298,7 +319,8 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                     const char* altitude_metres_checkbox,
                     const char* clock24_checkbox,
                     const char* text_scale_percent_value,
-                    const char* ota_password_value) {
+                    const char* ota_password_value,
+                    const char* brightness_value) {
   s_footer_enabled = checkboxChecked(footer_checkbox);
   s_weather_enabled = checkboxChecked(weather_checkbox);
   s_temperature_fahrenheit = checkboxChecked(fahrenheit_checkbox);
@@ -307,6 +329,10 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
   int text_scale_percent = s_text_scale_percent;
   if (parseTextScalePercent(text_scale_percent_value, &text_scale_percent)) {
     s_text_scale_percent = text_scale_percent;
+  }
+  uint8_t parsed_brightness = 0;
+  if (parseBrightness(brightness_value, &parsed_brightness)) {
+    s_brightness = parsed_brightness;
   }
 
   char password[kOtaPasswordMaxLen + 1] = {};

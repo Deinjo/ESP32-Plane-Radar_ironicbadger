@@ -11,3 +11,7 @@ void displayInit() {
   tft.setTextWrap(false);
   displayFontInit();
 }
+
+void displaySetBrightness(uint8_t brightness) {
+  tft.setBrightness(brightness);
+}

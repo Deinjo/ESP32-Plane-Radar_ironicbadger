@@ -19,6 +19,7 @@ bool temperatureFahrenheit();
 bool altitudeMetres();
 bool use24HourClock();
 int textScalePercent();
+uint8_t brightness();
 const char* otaPassword();
 
 enum class ColorId : uint8_t {
@@ -67,7 +68,8 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                     const char* altitude_metres_checkbox,
                      const char* clock24_checkbox,
                      const char* text_scale_percent_value,
-                     const char* ota_password_value);
+                     const char* ota_password_value,
+                     const char* brightness_value);
 
 /** Store HTML color input values as persistent 0xRRGGBB colors. */
 void saveColorsFromPortal(const char* background, const char* grid,
