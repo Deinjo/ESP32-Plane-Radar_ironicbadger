@@ -18,21 +18,7 @@ from download_a1_motorways import (
 )
 
 
-DEFAULT_WATER_NAMES = (
-    "Ruhr",
-    "Dortmund-Ems-Kanal",
-    "Dortmunder Hafen",
-    "Kemnader See",
-    "Kemnadersee",
-    "Phoenix-See",
-    "Phoenixsee",
-    "Phoenix See",
-    "Harkort-See",
-    "Harkortsee",
-    "Datteln-Hamm-Kanal",
-    "Dattel-Hamm-Kanal",
-    "Rhein-Herne-Kanal",
-)
+DEFAULT_WATER_LIST = Path("input/WaterNames.txt")
 
 
 def flexible_name_pattern(name: str) -> str:
@@ -41,6 +27,18 @@ def flexible_name_pattern(name: str) -> str:
     if not parts:
         raise ValueError(f"Ungueltiger Gewaessername: {name}")
     return r"[- ]*".join(re.escape(part) for part in parts)
+
+
+def load_water_names(path: Path) -> tuple[str, ...]:
+    """Liest Gewaessernamen aus einer Textdatei, eine Zeile je Name."""
+    names = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        name = line.strip()
+        if name and not name.startswith("#"):
+            names.append(name)
+    if not names:
+        raise ValueError(f"Keine Gewaessernamen in {path} gefunden.")
+    return tuple(names)
 
 
 def build_query(
@@ -81,6 +79,12 @@ def parse_args() -> argparse.Namespace:
         help="Gewaessername; kann mehrfach angegeben werden.",
     )
     parser.add_argument(
+        "--water-list",
+        type=Path,
+        default=DEFAULT_WATER_LIST,
+        help="Datei mit einem Gewaessernamen je Zeile.",
+    )
+    parser.add_argument(
         "--all-water",
         action="store_true",
         help="Alle Wasserflaechen und Wasserlaeufe wie in der alten Abfrage laden.",
@@ -101,9 +105,13 @@ def main() -> int:
         if not -180 <= args.longitude <= 180:
             raise ValueError("Der Laengengrad muss zwischen -180 und 180 liegen.")
 
-        water_names = None if args.all_water else tuple(
-            args.water_names or DEFAULT_WATER_NAMES
-        )
+        if args.all_water:
+            water_names = None
+        elif args.water_names:
+            water_names = tuple(args.water_names)
+        else:
+            water_names = load_water_names(args.water_list)
+            print(f"{len(water_names)} Gewaesser aus {args.water_list} geladen.")
         query = build_query(
             args.radius, args.latitude, args.longitude, water_names
         )
