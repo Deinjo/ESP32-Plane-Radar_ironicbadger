@@ -96,9 +96,12 @@ constexpr char kPortalGlobalStyle[] =
     "@media(max-width:520px){body{padding:12px}form{padding:16px}}"
     "</style>"
     "<script>document.addEventListener('DOMContentLoaded',function(){"
-    "if(location.pathname==='/'||!document.querySelector('.wrap'))return;"
+    "var w=document.querySelector('.wrap');if(!w)return;"
+    "if(location.pathname==='/' ){"
+    "var d=document.createElement('a');d.href='/display';d.textContent='Display';"
+    "d.className='home-link';w.prepend(d);return;}"
     "var a=document.createElement('a');a.href='/';a.textContent='Home';"
-    "a.className='home-link';document.querySelector('.wrap').prepend(a);"
+    "a.className='home-link';w.prepend(a);"
     "});</script>";
 
 /** Separate from planeradar prefs (rangeInit) to avoid NVS handle conflicts. */
