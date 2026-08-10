@@ -265,8 +265,11 @@ The release workflow attaches both images. Use `-full.bin` at offset `0x0` for f
 - [WiFiManager](https://github.com/tzapu/WiFiManager)
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 
-Runtime data services:
+## Runtime data services:
 
 - [adsb.fi](https://opendata.adsb.fi/) — nearby aircraft
 - [ADSBDB](https://www.adsbdb.com/) — route and detailed aircraft data
 - [Open-Meteo](https://open-meteo.com/) — current weather and local timezone offset
+
+## Credits
+This project is a clone of WatskeBart/ESP32-Plane-Radar by WatskeBart which is bases (fork) of MatixYo/ESP32-Plane-Radar by MatixYo. All credit for the original concept and implementation goes to them.
