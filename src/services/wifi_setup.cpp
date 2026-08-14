@@ -98,18 +98,28 @@ constexpr char kPortalGlobalStyle[] =
     "padding:12px;text-align:center;background:#38596b;color:#eef5f8;"
     "border:1px solid #5e8191;border-radius:6px;text-decoration:none;"
     "font-size:1.05rem;font-weight:600}"
-    ".portal-menu-link:hover{background:#486f80;border-color:#83a8b7}"
-    "@media(max-width:520px){body{padding:12px}form{padding:16px}}"
-    "</style>"
+     ".portal-menu-link:hover{background:#486f80;border-color:#83a8b7}"
+     ".portal-divider{border:0;border-top:2px solid #71808a;margin:24px 0 16px}"
+     "@media(max-width:520px){body{padding:12px}form{padding:16px}}"
+     "</style>"
     "<script>document.addEventListener('DOMContentLoaded',function(){"
     "var w=document.querySelector('.wrap');if(!w)return;"
-    "if(location.pathname==='/' ){"
-    "var r=document.createElement('div');r.className='c';"
-    "var d=document.createElement('a');d.href='/display';d.textContent='Display';"
-    "d.className='portal-menu-link';r.appendChild(d);w.appendChild(r);return;}"
-    "var a=document.createElement('a');a.href='/';a.textContent='Home';"
-    "a.className='home-link';w.prepend(a);"
-    "});</script>";
+     "if(location.pathname==='/' ){"
+     "var r=document.createElement('div');r.className='c';"
+     "var d=document.createElement('a');d.href='/display';d.textContent='Display';"
+     "d.className='portal-menu-link';r.appendChild(d);"
+     "var hr=document.createElement('hr');hr.className='portal-divider';"
+     "var h=w.querySelector('h1');if(h&&h.nextSibling){w.insertBefore(r,h.nextSibling);"
+     "w.insertBefore(hr,r.nextSibling);}else{w.prepend(hr);w.prepend(r);}return;}"
+     "var a=document.createElement('a');a.href='/';a.textContent='Home';"
+     "a.className='home-link';w.prepend(a);"
+     "if(location.pathname==='/param'){var c=document.createElement('a');"
+     "c.href='/component';c.textContent='Component Setup';"
+     "c.className='portal-menu-link';var cr=document.createElement('div');"
+     "cr.className='c';cr.appendChild(c);var ch=document.createElement('hr');"
+     "ch.className='portal-divider';var s=w.querySelector('.msg');"
+     "if(s){w.insertBefore(ch,s);w.insertBefore(cr,s);}else{w.appendChild(ch);w.appendChild(cr);}}"
+     "});</script>";
 
 /** Separate from planeradar prefs (rangeInit) to avoid NVS handle conflicts. */
 constexpr char kWifiPrefsNamespace[] = "wifi";
@@ -217,6 +227,158 @@ void handleLocationDefault() {
                     "{\"success\":true,\"lat\":" +
                         String(config::kDefaultRadarLat, 7) +
                         ",\"lon\":" + String(config::kDefaultRadarLon, 7) + "}");
+}
+
+void handleVisibility() {
+  if (!s_wm.server) return;
+  const auto value = [](services::settings::VisibilityId id) {
+    return services::settings::visible(id) ? "true" : "false";
+  };
+  String body = "{\"show_grid\":" + String(value(services::settings::VisibilityId::kGrid)) +
+                ",\"show_center\":" + String(value(services::settings::VisibilityId::kCenter)) +
+                ",\"show_label\":" + String(value(services::settings::VisibilityId::kLabel)) +
+                ",\"show_aircraft\":" + String(value(services::settings::VisibilityId::kAircraft)) +
+                ",\"show_track\":" + String(value(services::settings::VisibilityId::kTrackVector)) +
+                ",\"show_tag_type\":" + String(value(services::settings::VisibilityId::kTagType)) +
+                ",\"show_tag_alt\":" + String(value(services::settings::VisibilityId::kTagAltitude)) +
+                ",\"show_runway\":" + String(value(services::settings::VisibilityId::kRunway)) +
+                ",\"show_runway_label\":" + String(value(services::settings::VisibilityId::kRunwayLabel)) +
+                ",\"show_road\":" + String(value(services::settings::VisibilityId::kRoad)) +
+                ",\"show_city\":" + String(value(services::settings::VisibilityId::kCity)) +
+                ",\"show_road_primary\":" + String(value(services::settings::VisibilityId::kRoadPrimary)) + "}";
+  s_wm.server->send(200, "application/json", body);
+}
+
+String componentColor(uint32_t color) {
+  char value[8];
+  snprintf(value, sizeof(value), "#%06lX",
+           static_cast<unsigned long>(color & 0xFFFFFFUL));
+  return String(value);
+}
+
+void appendComponentRow(String& page, const char* id, const char* label,
+                        services::settings::ColorId color_id,
+                        services::settings::VisibilityId visibility_id,
+                        bool include_visibility,
+                        const char* default_color) {
+  page += "<section class='component'><div class='component-title'>";
+  page += label;
+  page += "</div><div class='component-controls'><input id='";
+  page += id;
+  page += "' name='";
+  page += id;
+  page += "' type='color' value='";
+  page += componentColor(services::settings::color(color_id));
+  page += "' data-default='";
+  page += default_color;
+  page += "'><button type='button' data-reset='";
+  page += id;
+  page += "'>Back to default</button>";
+  if (include_visibility) {
+    page += "<label><input type='checkbox' name='";
+    page += id;
+    page += "_visible' value='T'";
+    if (services::settings::visible(visibility_id)) page += " checked";
+    page += "> On</label>";
+  }
+  page += "</div></section>";
+}
+
+void handleComponentPage() {
+  if (!s_wm.server) return;
+  String page;
+  page.reserve(7500);
+  page = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+         "<title>ComponentSetup</title><style>"
+         "*{box-sizing:border-box}body{margin:0;padding:24px;background:#0d151e;color:#d7e0e9;"
+         "font:15px Segoe UI,Arial,sans-serif}main{max-width:760px;margin:auto;background:#141f2a;"
+         "padding:24px;border:1px solid #2a3a49;border-radius:12px}h1{font-size:1.35rem}"
+         ".component{padding:12px 0;border-top:1px solid #2a3a49}.component-title{font-weight:600;"
+         "margin-bottom:8px}.component-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}"
+         "input[type=color]{width:54px;height:34px;background:#0f1923;border:1px solid #526577;"
+         "border-radius:5px}button,input[type=submit]{padding:8px 13px;background:#38596b;color:#eef5f8;"
+         "border:1px solid #5e8191;border-radius:6px;font:inherit}a{color:#8eb5c5}"
+         "@media(max-width:520px){body{padding:12px}main{padding:16px}}"
+          "</style></head><body><main><a href='/param'>CommonSetup</a> | "
+          "<a href='/'>Home</a><h1>ComponentSetup</h1>"
+         "<form method='POST' action='/component-save'>";
+  appendComponentRow(page, "color_bg", "Background", services::settings::ColorId::kBackground,
+                     services::settings::VisibilityId::kGrid, false, "#040a1c");
+  appendComponentRow(page, "color_grid", "Grid", services::settings::ColorId::kGrid,
+                     services::settings::VisibilityId::kGrid, true, "#106420");
+  appendComponentRow(page, "color_center", "Center", services::settings::ColorId::kCenter,
+                     services::settings::VisibilityId::kCenter, true, "#ffffff");
+  appendComponentRow(page, "color_label", "Labels", services::settings::ColorId::kLabel,
+                     services::settings::VisibilityId::kLabel, true, "#ffffff");
+  appendComponentRow(page, "color_aircraft", "Aircraft", services::settings::ColorId::kAircraft,
+                     services::settings::VisibilityId::kAircraft, true, "#ff0000");
+  appendComponentRow(page, "color_track", "Track vector", services::settings::ColorId::kTrackVector,
+                     services::settings::VisibilityId::kTrackVector, true, "#ff00ff");
+  appendComponentRow(page, "color_tag_type", "Aircraft type", services::settings::ColorId::kTagType,
+                     services::settings::VisibilityId::kTagType, true, "#ffc800");
+  appendComponentRow(page, "color_tag_alt", "Altitude", services::settings::ColorId::kTagAltitude,
+                     services::settings::VisibilityId::kTagAltitude, true, "#5ac8ff");
+  appendComponentRow(page, "color_runway", "Runways", services::settings::ColorId::kRunway,
+                     services::settings::VisibilityId::kRunway, true, "#3896aa");
+  appendComponentRow(page, "color_runway_label", "Runway labels", services::settings::ColorId::kRunwayLabel,
+                     services::settings::VisibilityId::kRunwayLabel, true, "#6ed2e6");
+  appendComponentRow(page, "color_road", "Motorways", services::settings::ColorId::kRoad,
+                     services::settings::VisibilityId::kRoad, true, "#69737d");
+  appendComponentRow(page, "color_road_primary", "Primary roads", services::settings::ColorId::kRoadPrimary,
+                     services::settings::VisibilityId::kRoadPrimary, true, "#3c4650");
+  appendComponentRow(page, "color_city", "Cities", services::settings::ColorId::kCity,
+                     services::settings::VisibilityId::kCity, true, "#aaaaaa");
+  appendComponentRow(page, "color_footer", "Footer background", services::settings::ColorId::kFooterBackground,
+                     services::settings::VisibilityId::kGrid, false, "#031020");
+  page += "<p><input type='submit' value='Save'></p></form><script>"
+          "document.querySelectorAll('[data-reset]').forEach(function(b){b.onclick=function(){"
+          "document.getElementById(b.dataset.reset).value=document.getElementById(b.dataset.reset).dataset.default;};});"
+          "</script></main></body></html>";
+  s_wm.server->send(200, "text/html", page);
+}
+
+void handleComponentSave() {
+  if (!s_wm.server) return;
+  WebServer& web = *s_wm.server;
+  const String color_background = web.arg("color_bg");
+  const String color_grid = web.arg("color_grid");
+  const String color_label = web.arg("color_label");
+  const String color_center = web.arg("color_center");
+  const String color_aircraft = web.arg("color_aircraft");
+  const String color_track = web.arg("color_track");
+  const String color_tag_type = web.arg("color_tag_type");
+  const String color_tag_alt = web.arg("color_tag_alt");
+  const String color_runway = web.arg("color_runway");
+  const String color_runway_label = web.arg("color_runway_label");
+  const String color_footer = web.arg("color_footer");
+  const String color_road = web.arg("color_road");
+  const String color_city = web.arg("color_city");
+  const String color_road_primary = web.arg("color_road_primary");
+  services::settings::saveColorsFromPortal(
+      color_background.c_str(), color_grid.c_str(), color_label.c_str(),
+      color_center.c_str(), color_aircraft.c_str(), color_track.c_str(),
+      color_tag_type.c_str(), color_tag_alt.c_str(), color_runway.c_str(),
+      color_runway_label.c_str(), color_footer.c_str(), color_road.c_str(),
+      color_city.c_str(), color_road_primary.c_str());
+  const String show_grid = web.arg("color_grid_visible");
+  const String show_center = web.arg("color_center_visible");
+  const String show_label = web.arg("color_label_visible");
+  const String show_aircraft = web.arg("color_aircraft_visible");
+  const String show_track = web.arg("color_track_visible");
+  const String show_tag_type = web.arg("color_tag_type_visible");
+  const String show_tag_alt = web.arg("color_tag_alt_visible");
+  const String show_runway = web.arg("color_runway_visible");
+  const String show_runway_label = web.arg("color_runway_label_visible");
+  const String show_road = web.arg("color_road_visible");
+  const String show_city = web.arg("color_city_visible");
+  const String show_road_primary = web.arg("color_road_primary_visible");
+  services::settings::saveVisibilityFromPortal(
+      show_grid.c_str(), show_center.c_str(), show_label.c_str(),
+      show_aircraft.c_str(), show_track.c_str(), show_tag_type.c_str(),
+      show_tag_alt.c_str(), show_runway.c_str(), show_runway_label.c_str(),
+      show_road.c_str(), show_city.c_str(), show_road_primary.c_str());
+  web.sendHeader("Location", "/component");
+  web.send(303, "text/plain", "Saved");
 }
 
 constexpr int kCoordParamLen = 20;
@@ -328,171 +490,6 @@ WiFiManagerParameter s_param_night_start(
 WiFiManagerParameter s_param_night_end(
     "night_end", "Night mode end", "07:00", 6, kNightTimeAttrs);
 
-constexpr char kColorInputAttrs[] = "type=\"color\"";
-constexpr int kColorInputLen = 8;
-WiFiManagerParameter s_param_color_background("color_bg", "Background", "#040a1c",
-                                               kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_grid("color_grid", "Grid", "#106420",
-                                         kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_label("color_label", "Labels", "#ffffff",
-                                          kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_center("color_center", "Center marker", "#ffffff",
-                                           kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_aircraft("color_aircraft", "Aircraft", "#ff0000",
-                                              kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_track("color_track", "Track vector", "#ff00ff",
-                                          kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_tag_type("color_tag_type", "Aircraft type", "#ffc800",
-                                              kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_tag_alt("color_tag_alt", "Altitude", "#5ac8ff",
-                                            kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_runway("color_runway", "Runways", "#3896aa",
-                                            kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_runway_label("color_runway_label", "Runway labels", "#6ed2e6",
-                                                   kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_footer("color_footer", "Footer background", "#031020",
-                                           kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_road("color_road", "Motorways", "#69737d",
-                                          kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_road_primary("color_road_primary", "Primary roads", "#3c4650",
-                                                 kColorInputLen, kColorInputAttrs);
-WiFiManagerParameter s_param_color_city("color_city", "Cities", "#aaaaaa",
-                                         kColorInputLen, kColorInputAttrs);
-
-char s_show_grid_attrs[32] = "type=\"checkbox\"";
-char s_show_center_attrs[32] = "type=\"checkbox\"";
-char s_show_label_attrs[32] = "type=\"checkbox\"";
-char s_show_aircraft_attrs[32] = "type=\"checkbox\"";
-char s_show_track_attrs[32] = "type=\"checkbox\"";
-char s_show_tag_type_attrs[32] = "type=\"checkbox\"";
-char s_show_tag_alt_attrs[32] = "type=\"checkbox\"";
-char s_show_runway_attrs[32] = "type=\"checkbox\"";
-char s_show_runway_label_attrs[32] = "type=\"checkbox\"";
-char s_show_road_attrs[32] = "type=\"checkbox\"";
-char s_show_road_primary_attrs[32] = "type=\"checkbox\"";
-char s_show_city_attrs[32] = "type=\"checkbox\"";
-WiFiManagerParameter s_param_show_grid("show_grid", "Show grid", "T", 2,
-                                        s_show_grid_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_center("show_center", "Show center", "T", 2,
-                                          s_show_center_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_label("show_label", "Show labels", "T", 2,
-                                         s_show_label_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_aircraft("show_aircraft", "Show aircraft", "T", 2,
-                                            s_show_aircraft_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_track("show_track", "Show track vector", "T", 2,
-                                         s_show_track_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_tag_type("show_tag_type", "Show aircraft type", "T", 2,
-                                            s_show_tag_type_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_tag_alt("show_tag_alt", "Show altitude", "T", 2,
-                                           s_show_tag_alt_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_runway("show_runway", "Show runways", "T", 2,
-                                          s_show_runway_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_runway_label("show_runway_label", "Show runway labels", "T", 2,
-                                                s_show_runway_label_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_road("show_road", "Show roads", "T", 2,
-                                        s_show_road_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_road_primary(
-    "show_road_primary", "Show primary roads", "T", 2,
-    s_show_road_primary_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_show_city("show_city", "Show cities", "T", 2,
-                                        s_show_city_attrs, WFM_LABEL_AFTER);
-WiFiManagerParameter s_param_color_group_background(
-    "<h3 style='margin:1.2rem 0 .4rem'>Hintergrundkarte</h3>");
-WiFiManagerParameter s_param_color_group_grid(
-    "<h3 style='margin:1.2rem 0 .4rem'>Raster</h3>");
-WiFiManagerParameter s_param_color_group_aircraft(
-    "<h3 style='margin:1.2rem 0 .4rem'>Flugzeuge</h3>");
-WiFiManagerParameter s_param_color_group_general(
-    "<h3 style='margin:1.2rem 0 .4rem'>Allgemein</h3>");
-WiFiManagerParameter s_param_color_reset_controls(
-    "<script>(function(){"
-    "var style=document.createElement('style');"
-    "style.textContent=\""
-    "*{box-sizing:border-box;}"
-    "body{margin:0;padding:24px;background:#0d151e;color:#d7e0e9;"
-    "font-family:Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.45;}"
-    "body>div,body>form,form{max-width:760px;margin:0 auto;}"
-    "form{padding:24px;background:#141f2a;border:1px solid #2a3a49;"
-    "border-radius:12px;box-shadow:0 12px 32px #0005;}"
-    "h1,h2,h3{color:#edf3f8;font-weight:600;letter-spacing:.01em;}"
-    "h1{font-size:1.35rem;margin:0 0 1.2rem;}"
-    "h2{font-size:1.05rem;margin:1.5rem 0 .6rem;}"
-    ".c{float:none!important;clear:both!important;width:100%!important;}"
-    "h3{clear:both!important;width:100%!important;font-size:1rem;"
-    "margin:1.5rem 0 .7rem!important;padding:10px 12px;"
-    "background:#1a2937;border-left:3px solid #62899d;border-radius:6px;}"
-    "label{color:#b8c6d3;}"
-    "input[type=text],input[type=password],input[type=number],select{"
-    "width:100%;padding:9px 10px;background:#0f1923;color:#e4edf4;"
-    "border:1px solid #35495b;border-radius:6px;outline:none;}"
-    "input[type=text]:focus,input[type=password]:focus,input[type=number]:focus{"
-    "border-color:#7098aa;box-shadow:0 0 0 2px #7098aa33;}"
-    "input[type=color]{width:52px;height:32px;padding:3px;"
-    "background:#0f1923;border:1px solid #526577;border-radius:5px;}"
-    "input[type=range]{accent-color:#7098aa;}"
-    "input[type=checkbox]{accent-color:#7098aa;}"
-    "button,input[type=submit]{padding:8px 13px;background:#38596b;"
-    "color:#eef5f8;border:1px solid #5e8191;border-radius:6px;"
-    "font:inherit;cursor:pointer;transition:background .15s,border-color .15s;}"
-    "button:hover,input[type=submit]:hover{background:#486f80;border-color:#83a8b7;}"
-    ".color-controls{min-width:170px;}"
-    "@media(max-width:520px){body{padding:12px;}form{padding:16px;}"
-    ".color-controls{min-width:145px;}}"
-    "a{color:#8eb5c5;}"
-    "small{color:#9aaabd;}"
-    "\";"
-    "document.head.appendChild(style);"
-    "document.querySelectorAll('.wrap,.wrap form,.wrap form>div').forEach(function(e){"
-    "e.style.setProperty('float','none','important');"
-    "e.style.setProperty('clear','both','important');"
-    "e.style.setProperty('width','100%','important');"
-    "e.style.setProperty('display','block','important');});"
-    "var d={color_bg:'#040a1c',color_grid:'#106420',"
-    "color_label:'#ffffff',color_center:'#ffffff',"
-    "color_aircraft:'#ff0000',color_track:'#ff00ff',"
-    "color_tag_type:'#ffc800',color_tag_alt:'#5ac8ff',"
-    "color_runway:'#3896aa',color_runway_label:'#6ed2e6',"
-    "color_footer:'#031020',color_road:'#69737d',"
-    "color_road_primary:'#3c4650',color_city:'#aaaaaa'};"
-    "var v={color_grid:'show_grid',color_center:'show_center',"
-    "color_label:'show_label',color_aircraft:'show_aircraft',"
-    "color_track:'show_track',color_tag_type:'show_tag_type',"
-    "color_tag_alt:'show_tag_alt',color_runway:'show_runway',"
-    "color_runway_label:'show_runway_label',color_road:'show_road',"
-    "color_road_primary:'show_road_primary',color_city:'show_city'};"
-    "Object.keys(d).forEach(function(id){"
-    "var i=document.getElementById(id);if(!i)return;"
-    "var p=i.parentNode;"
-    "var r=p.parentNode;"
-    "[p,r].forEach(function(e){e.style.setProperty('float','none','important');"
-    "e.style.setProperty('clear','both','important');"
-    "e.style.setProperty('width','100%','important');"
-    "e.style.setProperty('box-sizing','border-box','important');});"
-    "var c=document.createElement('span');"
-    "c.className='color-controls';"
-    "c.style.display='grid';c.style.gridTemplateColumns='4rem auto auto';"
-    "c.style.alignItems='center';c.style.gap='8px';"
-    "var b=document.createElement('button');b.type='button';"
-    "b.textContent='Standard';b.style.margin='0';"
-    "b.onclick=function(){i.value=d[id];};"
-    "i.style.display='block';i.style.margin='0';"
-    "p.replaceChild(c,i);c.appendChild(i);c.appendChild(b);"
-    "var x=document.getElementById(v[id]);"
-    "if(x){var xp=x.parentNode;xp.style.display='none';"
-    "var xl=document.querySelector('label[for=\"'+v[id]+'\"]');"
-    "if(xl)xl.style.display='none';"
-    "var q=document.createElement('label');q.style.whiteSpace='nowrap';"
-    "x.style.display='inline-block';x.title='Anzeigen';q.appendChild(x);"
-    "q.appendChild(document.createTextNode(' Anzeigen'));c.appendChild(q);}"
-    "p.style.display='grid';p.style.gridTemplateColumns='minmax(9rem,1fr) auto';"
-    "p.style.alignItems='center';p.style.gap='8px';"
-    "});"
-    "document.querySelectorAll('h3').forEach(function(h){"
-    "var q=h.parentNode;q.style.setProperty('float','none','important');"
-    "q.style.setProperty('clear','both','important');"
-    "q.style.setProperty('width','100%','important');});"
-    "})();</script>");
-
 constexpr char kOtaPasswordAttrs[] =
     "type=\"password\" autocomplete=\"new-password\" "
     "placeholder=\"leave blank to keep current\"";
@@ -566,67 +563,6 @@ void refreshPortalParamDefaults() {
   s_param_night_end.setValue(night_end_buf, 6);
   s_param_ota_password.setValue("", kOtaPasswordParamLen);
 
-  const auto setColor = [](WiFiManagerParameter& param,
-                           services::settings::ColorId id) {
-    char value[8];
-    snprintf(value, sizeof(value), "#%06lX",
-             static_cast<unsigned long>(services::settings::color(id)));
-    for (char* p = value + 1; *p != '\0'; ++p) {
-      if (*p >= 'A' && *p <= 'F') {
-        *p = static_cast<char>(*p - 'A' + 'a');
-      }
-    }
-    param.setValue(value, kColorInputLen);
-  };
-  setColor(s_param_color_background, services::settings::ColorId::kBackground);
-  setColor(s_param_color_grid, services::settings::ColorId::kGrid);
-  setColor(s_param_color_label, services::settings::ColorId::kLabel);
-  setColor(s_param_color_center, services::settings::ColorId::kCenter);
-  setColor(s_param_color_aircraft, services::settings::ColorId::kAircraft);
-  setColor(s_param_color_track, services::settings::ColorId::kTrackVector);
-  setColor(s_param_color_tag_type, services::settings::ColorId::kTagType);
-  setColor(s_param_color_tag_alt, services::settings::ColorId::kTagAltitude);
-  setColor(s_param_color_runway, services::settings::ColorId::kRunway);
-  setColor(s_param_color_runway_label, services::settings::ColorId::kRunwayLabel);
-  setColor(s_param_color_footer, services::settings::ColorId::kFooterBackground);
-  setColor(s_param_color_road, services::settings::ColorId::kRoad);
-  setColor(s_param_color_road_primary,
-           services::settings::ColorId::kRoadPrimary);
-  setColor(s_param_color_city, services::settings::ColorId::kCity);
-
-  const auto setVisibility = [](char* attrs, size_t attrs_len,
-                                WiFiManagerParameter& param,
-                                services::settings::VisibilityId id) {
-    refreshCheckboxAttrs(attrs, attrs_len,
-                         services::settings::visible(id));
-    param.setValue("T", 2);
-  };
-  setVisibility(s_show_grid_attrs, sizeof(s_show_grid_attrs), s_param_show_grid,
-                services::settings::VisibilityId::kGrid);
-  setVisibility(s_show_center_attrs, sizeof(s_show_center_attrs), s_param_show_center,
-                services::settings::VisibilityId::kCenter);
-  setVisibility(s_show_label_attrs, sizeof(s_show_label_attrs), s_param_show_label,
-                services::settings::VisibilityId::kLabel);
-  setVisibility(s_show_aircraft_attrs, sizeof(s_show_aircraft_attrs), s_param_show_aircraft,
-                services::settings::VisibilityId::kAircraft);
-  setVisibility(s_show_track_attrs, sizeof(s_show_track_attrs), s_param_show_track,
-                services::settings::VisibilityId::kTrackVector);
-  setVisibility(s_show_tag_type_attrs, sizeof(s_show_tag_type_attrs), s_param_show_tag_type,
-                services::settings::VisibilityId::kTagType);
-  setVisibility(s_show_tag_alt_attrs, sizeof(s_show_tag_alt_attrs), s_param_show_tag_alt,
-                services::settings::VisibilityId::kTagAltitude);
-  setVisibility(s_show_runway_attrs, sizeof(s_show_runway_attrs), s_param_show_runway,
-                services::settings::VisibilityId::kRunway);
-  setVisibility(s_show_runway_label_attrs, sizeof(s_show_runway_label_attrs),
-                s_param_show_runway_label,
-                services::settings::VisibilityId::kRunwayLabel);
-  setVisibility(s_show_road_attrs, sizeof(s_show_road_attrs), s_param_show_road,
-                services::settings::VisibilityId::kRoad);
-  setVisibility(s_show_road_primary_attrs, sizeof(s_show_road_primary_attrs),
-                s_param_show_road_primary,
-                services::settings::VisibilityId::kRoadPrimary);
-  setVisibility(s_show_city_attrs, sizeof(s_show_city_attrs), s_param_show_city,
-                services::settings::VisibilityId::kCity);
 }
 
 void onPortalParamsSaved() {
@@ -647,21 +583,6 @@ void onPortalParamsSaved() {
     s_param_night_enabled.getValue(),
     s_param_night_start.getValue(), s_param_night_end.getValue(),
     s_param_use_iata.getValue());
-  services::settings::saveColorsFromPortal(
-      s_param_color_background.getValue(), s_param_color_grid.getValue(),
-      s_param_color_label.getValue(), s_param_color_center.getValue(),
-      s_param_color_aircraft.getValue(), s_param_color_track.getValue(),
-      s_param_color_tag_type.getValue(), s_param_color_tag_alt.getValue(),
-      s_param_color_runway.getValue(), s_param_color_runway_label.getValue(),
-      s_param_color_footer.getValue(), s_param_color_road.getValue(),
-      s_param_color_city.getValue(), s_param_color_road_primary.getValue());
-  services::settings::saveVisibilityFromPortal(
-      s_param_show_grid.getValue(), s_param_show_center.getValue(),
-      s_param_show_label.getValue(), s_param_show_aircraft.getValue(),
-      s_param_show_track.getValue(), s_param_show_tag_type.getValue(),
-      s_param_show_tag_alt.getValue(), s_param_show_runway.getValue(),
-      s_param_show_runway_label.getValue(), s_param_show_road.getValue(),
-      s_param_show_city.getValue(), s_param_show_road_primary.getValue());
 }
 
 void savePortalParamsFromRequest(WebServer& web) {
@@ -681,33 +602,6 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String night_start = web.arg("night_start");
   const String night_end = web.arg("night_end");
   const String use_iata = web.arg("use_iata");
-  const String color_background = web.arg("color_bg");
-  const String color_grid = web.arg("color_grid");
-  const String color_label = web.arg("color_label");
-  const String color_center = web.arg("color_center");
-  const String color_aircraft = web.arg("color_aircraft");
-  const String color_track = web.arg("color_track");
-  const String color_tag_type = web.arg("color_tag_type");
-  const String color_tag_alt = web.arg("color_tag_alt");
-  const String color_runway = web.arg("color_runway");
-  const String color_runway_label = web.arg("color_runway_label");
-  const String color_footer = web.arg("color_footer");
-  const String color_road = web.arg("color_road");
-  const String color_road_primary = web.arg("color_road_primary");
-  const String color_city = web.arg("color_city");
-  const String show_grid = web.arg("show_grid");
-  const String show_center = web.arg("show_center");
-  const String show_label = web.arg("show_label");
-  const String show_aircraft = web.arg("show_aircraft");
-  const String show_track = web.arg("show_track");
-  const String show_tag_type = web.arg("show_tag_type");
-  const String show_tag_alt = web.arg("show_tag_alt");
-  const String show_runway = web.arg("show_runway");
-  const String show_runway_label = web.arg("show_runway_label");
-  const String show_road = web.arg("show_road");
-  const String show_road_primary = web.arg("show_road_primary");
-  const String show_city = web.arg("show_city");
-
   if (!services::location::saveFromStrings(latitude.c_str(),
                                            longitude.c_str())) {
     Serial.println("Invalid lat/lon in portal — keeping previous location");
@@ -721,17 +615,6 @@ void savePortalParamsFromRequest(WebServer& web) {
     text_scale.c_str(), ota_password.c_str(),
     night_enabled.c_str(), night_start.c_str(), night_end.c_str(),
     use_iata.c_str());
-  services::settings::saveColorsFromPortal(
-      color_background.c_str(), color_grid.c_str(), color_label.c_str(),
-      color_center.c_str(), color_aircraft.c_str(), color_track.c_str(),
-      color_tag_type.c_str(), color_tag_alt.c_str(), color_runway.c_str(),
-      color_runway_label.c_str(), color_footer.c_str(), color_road.c_str(),
-      color_city.c_str(), color_road_primary.c_str());
-  services::settings::saveVisibilityFromPortal(
-      show_grid.c_str(), show_center.c_str(), show_label.c_str(),
-      show_aircraft.c_str(), show_track.c_str(), show_tag_type.c_str(),
-      show_tag_alt.c_str(), show_runway.c_str(), show_runway_label.c_str(),
-      show_road.c_str(), show_city.c_str(), show_road_primary.c_str());
   refreshPortalParamDefaults();
 }
 
@@ -776,6 +659,9 @@ void attachSettingsRoutes() {
   s_wm.server->on("/airports", HTTP_GET, handleAirportSearch);
   s_wm.server->on("/airport", HTTP_GET, handleAirportLookup);
   s_wm.server->on("/location-default", HTTP_POST, handleLocationDefault);
+  s_wm.server->on("/visibility", HTTP_GET, handleVisibility);
+  s_wm.server->on("/component", HTTP_GET, handleComponentPage);
+  s_wm.server->on("/component-save", HTTP_POST, handleComponentSave);
   // Register before WiFiManager's built-in /paramsave handler so the custom
   // confirmation can redirect back to Setup.
   s_wm.server->on("/paramsave", HTTP_POST, handleSettingsSaved);
@@ -805,37 +691,7 @@ void attachPortalParams(WiFiManager& wm) {
   wm.addParameter(&s_param_night_start);
   wm.addParameter(&s_param_night_end);
   wm.addParameter(&s_param_ota_password);
-  wm.addParameter(&s_param_color_group_general);
-  wm.addParameter(&s_param_color_background);
-  wm.addParameter(&s_param_color_footer);
-  wm.addParameter(&s_param_color_group_background);
-  wm.addParameter(&s_param_color_road);
-  wm.addParameter(&s_param_show_road);
-  wm.addParameter(&s_param_color_road_primary);
-  wm.addParameter(&s_param_show_road_primary);
-  wm.addParameter(&s_param_color_runway);
-  wm.addParameter(&s_param_show_runway);
-  wm.addParameter(&s_param_color_runway_label);
-  wm.addParameter(&s_param_show_runway_label);
-  wm.addParameter(&s_param_color_city);
-  wm.addParameter(&s_param_show_city);
-  wm.addParameter(&s_param_color_group_grid);
-  wm.addParameter(&s_param_color_grid);
-  wm.addParameter(&s_param_show_grid);
-  wm.addParameter(&s_param_color_center);
-  wm.addParameter(&s_param_show_center);
-  wm.addParameter(&s_param_color_label);
-  wm.addParameter(&s_param_show_label);
-  wm.addParameter(&s_param_color_group_aircraft);
-  wm.addParameter(&s_param_color_aircraft);
-  wm.addParameter(&s_param_show_aircraft);
-  wm.addParameter(&s_param_color_track);
-  wm.addParameter(&s_param_show_track);
-  wm.addParameter(&s_param_color_tag_type);
-  wm.addParameter(&s_param_show_tag_type);
-  wm.addParameter(&s_param_color_tag_alt);
-  wm.addParameter(&s_param_show_tag_alt);
-  wm.addParameter(&s_param_color_reset_controls);
+  Serial.printf("Setup parameters registered: %d\n", wm.getParametersCount());
   wm.setSaveParamsCallback(onPortalParamsSaved);
 }
 

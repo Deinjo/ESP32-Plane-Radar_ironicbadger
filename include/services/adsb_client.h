@@ -37,4 +37,7 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km);
  */
 bool enrichOnePending();
 
+/** Return whether optional flight-data enrichment may allocate TLS resources. */
+bool enrichmentAllowed();
+
 }  // namespace services::adsb

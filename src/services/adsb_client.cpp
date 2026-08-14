@@ -2,6 +2,7 @@
 
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <esp_heap_caps.h>
 
 #include <ArduinoJson.h>
 
@@ -19,8 +20,10 @@ namespace {
 constexpr char kApiBase[] = "https://opendata.adsb.fi/api/v3/lat/";
 constexpr float kKmPerNm = 1.852f;
 constexpr float kMetresPerFoot = 0.3048f;
-constexpr int kConnectAttemptMs = 200;
-constexpr unsigned long kAdsbRequestTimeoutMs = 10000;
+constexpr int kConnectAttemptMs = 3000;
+constexpr unsigned long kAdsbRequestTimeoutMs = 5000;
+constexpr unsigned long kAdsbFailureBackoffMs = 30000;
+constexpr unsigned long kAdsbMaxFailureBackoffMs = 300000;
 constexpr size_t kEnrichmentCacheSize = 48;
 
 Aircraft s_aircraft[kMaxAircraft];
@@ -28,6 +31,10 @@ size_t s_aircraft_count = 0;
 PollFn s_poll_fn = nullptr;
 unsigned long s_last_enrichment_lookup_ms = 0;
 unsigned long s_last_enrichment_failure_ms = 0;
+unsigned long s_last_adsb_failure_ms = 0;
+uint8_t s_adsb_failure_count = 0;
+bool s_enrichment_paused = false;
+unsigned long s_enrichment_recovery_started_ms = 0;
 double s_last_center_lat = 0.0;
 double s_last_center_lon = 0.0;
 
@@ -48,66 +55,42 @@ void pollNetwork() {
   }
 }
 
-int performGetWithPoll(HTTPClient& http, unsigned long timeout_ms) {
+int performGet(HTTPClient& http) {
   http.setConnectTimeout(kConnectAttemptMs);
-  const unsigned long started_ms = millis();
-  while (millis() - started_ms < timeout_ms) {
-    const int code = http.GET();
-    if (code > 0) {
-      return code;
-    }
-    if (code != HTTPC_ERROR_CONNECTION_REFUSED &&
-        code != HTTPC_ERROR_NOT_CONNECTED) {
-      return code;
-    }
-    delay(5);
+  const int code = http.GET();
+  if (code == HTTPC_ERROR_CONNECTION_REFUSED ||
+      code == HTTPC_ERROR_NOT_CONNECTED) {
+    // A failed TLS allocation is not recoverable by immediately reconnecting.
+    // Repeated GET() calls only amplify heap fragmentation on the ESP32-C3.
+    pollNetwork();
   }
-  return HTTPC_ERROR_READ_TIMEOUT;
+  return code;
 }
 
-bool readResponseBodyWithPoll(HTTPClient& http, String& payload,
-                              unsigned long timeout_ms) {
-  WiFiClient* stream = http.getStreamPtr();
-  if (stream == nullptr) {
-    return false;
-  }
+void printRequestDiagnostics(const char* phase, unsigned long started_ms) {
+  Serial.printf("adsb: %s t=%lums heap=%u min_heap=%u\n", phase,
+                millis() - started_ms, static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getMinFreeHeap()));
+}
 
-  const int content_length = http.getSize();
-  if (content_length > 0) {
-    payload.reserve(static_cast<unsigned>(content_length + 1));
-  }
+void printNetworkDiagnostics() {
+  Serial.printf("adsb: wifi status=%d local=%s gateway=%s dns=%s\n",
+                static_cast<int>(WiFi.status()), WiFi.localIP().toString().c_str(),
+                WiFi.gatewayIP().toString().c_str(),
+                WiFi.dnsIP().toString().c_str());
+}
 
-  uint8_t buffer[512];
-  const unsigned long started_ms = millis();
-  while (millis() - started_ms < timeout_ms) {
-    const int available = stream->available();
-    if (available > 0) {
-      const int to_read =
-          available > static_cast<int>(sizeof(buffer)) ? static_cast<int>(sizeof(buffer))
-                                                       : available;
-      const int read_bytes = stream->readBytes(buffer, to_read);
-      if (read_bytes > 0) {
-        payload.concat(reinterpret_cast<const char*>(buffer),
-                       static_cast<unsigned>(read_bytes));
-      }
-    }
-    if (content_length > 0 &&
-        static_cast<int>(payload.length()) >= content_length) {
-      break;
-    }
-    if (!http.connected() && stream->available() <= 0) {
-      break;
-    }
-    delay(1);
-  }
+size_t largestFreeBlock() {
+  return heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+}
 
-  if (content_length > 0 &&
-      static_cast<int>(payload.length()) < content_length) {
-    Serial.printf("HTTP response incomplete: received %u of %d bytes\n",
-                  static_cast<unsigned>(payload.length()), content_length);
-    return false;
+unsigned long adsbFailureBackoff() {
+  if (s_adsb_failure_count <= 1) {
+    return kAdsbFailureBackoffMs;
   }
-  return payload.length() > 0;
+  const uint8_t shift = s_adsb_failure_count > 4 ? 3 : s_adsb_failure_count - 1;
+  unsigned long backoff = kAdsbFailureBackoffMs << shift;
+  return backoff > kAdsbMaxFailureBackoffMs ? kAdsbMaxFailureBackoffMs : backoff;
 }
 
 float kmToNauticalMiles(float km) { return km / kKmPerNm; }
@@ -445,6 +428,7 @@ String callsignRouteUrl(const Aircraft& plane) {
 bool fetchFlightDataJson(const String& url, const char* callsign,
                          JsonDocument* doc, bool* not_found) {
   *not_found = false;
+  const unsigned long started_ms = millis();
   WiFiClientSecure client;
   client.setInsecure();
 
@@ -457,14 +441,20 @@ bool fetchFlightDataJson(const String& url, const char* callsign,
   // detected before they reach ArduinoJson.
   http.useHTTP10(true);
   http.setTimeout(config::kFlightLookupTimeoutMs);
-  const int code = performGetWithPoll(http, config::kFlightLookupTimeoutMs);
+  const int code = performGet(http);
 
-  String payload;
+  DeserializationError error;
   if (code == HTTP_CODE_OK) {
-    if (!readResponseBodyWithPoll(http, payload,
-                                  config::kFlightLookupTimeoutMs)) {
-      Serial.printf("flight data: incomplete response for %s\n", callsign);
+    WiFiClient* stream = http.getStreamPtr();
+    if (stream == nullptr) {
+      Serial.printf("flight data: response stream unavailable for %s t=%lums heap=%u min_heap=%u\n",
+                    callsign, millis() - started_ms,
+                    static_cast<unsigned>(ESP.getFreeHeap()),
+                    static_cast<unsigned>(ESP.getMinFreeHeap()));
+      http.end();
+      return false;
     }
+    error = deserializeJson(*doc, *stream);
   }
   http.end();
 
@@ -472,14 +462,20 @@ bool fetchFlightDataJson(const String& url, const char* callsign,
     *not_found = true;
     return true;
   }
-  if (code != HTTP_CODE_OK || payload.length() == 0) {
-    Serial.printf("flight data: HTTP %d for %s\n", code, callsign);
+  if (code != HTTP_CODE_OK) {
+    Serial.printf("flight data: HTTP %d for %s t=%lums heap=%u min_heap=%u\n",
+                  code, callsign, millis() - started_ms,
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()));
+    printNetworkDiagnostics();
     return false;
   }
 
-  const DeserializationError error = deserializeJson(*doc, payload);
   if (error) {
-    Serial.printf("flight data: JSON parse error: %s\n", error.c_str());
+    Serial.printf("flight data: JSON parse error: %s for %s t=%lums heap=%u min_heap=%u\n",
+                  error.c_str(), callsign, millis() - started_ms,
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()));
     return false;
   }
   return true;
@@ -489,18 +485,20 @@ bool fetchEnrichment(const Aircraft& plane, EnrichmentCacheEntry* entry) {
   entry->route[0] = '\0';
   entry->type[0] = '\0';
 
-  JsonDocument doc;
-  bool not_found = false;
-  if (!fetchFlightDataJson(enrichmentUrl(plane), plane.callsign, &doc,
-                           &not_found)) {
-    return false;
-  }
+  {
+    JsonDocument doc;
+    bool not_found = false;
+    if (!fetchFlightDataJson(enrichmentUrl(plane), plane.callsign, &doc,
+                             &not_found)) {
+      return false;
+    }
 
-  if (!not_found) {
-    JsonObject response = doc["response"].as<JsonObject>();
-    if (!response.isNull()) {
-      parseRoute(response, entry->route, sizeof(entry->route));
-      parseDetailedType(response, entry->type, sizeof(entry->type));
+    if (!not_found) {
+      JsonObject response = doc["response"].as<JsonObject>();
+      if (!response.isNull()) {
+        parseRoute(response, entry->route, sizeof(entry->route));
+        parseDetailedType(response, entry->type, sizeof(entry->type));
+      }
     }
   }
 
@@ -547,6 +545,26 @@ size_t aircraftCount() { return s_aircraft_count; }
 const Aircraft* aircraftList() { return s_aircraft; }
 
 bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
+  const unsigned long now = millis();
+  const unsigned long failure_backoff_ms = adsbFailureBackoff();
+  if (s_last_adsb_failure_ms != 0 &&
+      now - s_last_adsb_failure_ms < failure_backoff_ms) {
+    return false;
+  }
+
+  const auto requestFailed = []() {
+    s_last_adsb_failure_ms = millis();
+    if (s_adsb_failure_count < 10) {
+      ++s_adsb_failure_count;
+    }
+    Serial.printf("adsb: failure backoff=%lus count=%u\n",
+                  adsbFailureBackoff(),
+                  static_cast<unsigned>(s_adsb_failure_count));
+    return false;
+  };
+  const unsigned long started_ms = millis();
+  printRequestDiagnostics("request-start", started_ms);
+
   s_last_center_lat = center_lat;
   s_last_center_lon = center_lon;
   const float dist_nm = kmToNauticalMiles(fetch_radius_km);
@@ -564,38 +582,66 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   HTTPClient http;
   if (!http.begin(client, url)) {
     Serial.println("adsb: http.begin failed");
-    return false;
+    return requestFailed();
   }
 
   // Prefer a Content-Length response so truncated HTTPS bodies can be
   // detected before they reach ArduinoJson.
   http.useHTTP10(true);
   http.setTimeout(kAdsbRequestTimeoutMs);
-  const int code = performGetWithPoll(http, kAdsbRequestTimeoutMs);
+  const int code = performGet(http);
+  printRequestDiagnostics("after-get", started_ms);
   if (code != HTTP_CODE_OK) {
-    Serial.printf("adsb: HTTP %d\n", code);
+    Serial.printf("adsb: HTTP %d t=%lums heap=%u min_heap=%u\n", code,
+                  millis() - started_ms,
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()));
+    printNetworkDiagnostics();
     http.end();
-    return false;
+    return requestFailed();
   }
 
-  String payload;
-  if (!readResponseBodyWithPoll(http, payload, kAdsbRequestTimeoutMs)) {
-    Serial.println("adsb: empty response");
+  WiFiClient* stream = http.getStreamPtr();
+  if (stream == nullptr) {
+    Serial.println("adsb: response stream unavailable");
     http.end();
-    return false;
+    return requestFailed();
   }
-  http.end();
 
   JsonDocument doc;
-  const DeserializationError err = deserializeJson(doc, payload);
+  JsonDocument filter;
+  JsonArray aircraft_filter_array = filter["ac"].to<JsonArray>();
+  JsonObject aircraft_filter = aircraft_filter_array.add<JsonObject>();
+  aircraft_filter["hex"] = true;
+  aircraft_filter["flight"] = true;
+  aircraft_filter["t"] = true;
+  aircraft_filter["lat"] = true;
+  aircraft_filter["lon"] = true;
+  aircraft_filter["alt_baro"] = true;
+  aircraft_filter["alt_geom"] = true;
+  aircraft_filter["true_heading"] = true;
+  aircraft_filter["mag_heading"] = true;
+  aircraft_filter["track"] = true;
+  aircraft_filter["dir"] = true;
+  aircraft_filter["gs"] = true;
+  aircraft_filter["tas"] = true;
+  aircraft_filter["ias"] = true;
+  const DeserializationError err =
+      deserializeJson(doc, *stream, DeserializationOption::Filter(filter));
+  printRequestDiagnostics("after-json", started_ms);
+  http.end();
   if (err) {
-    Serial.printf("adsb: JSON parse error: %s\n", err.c_str());
-    return false;
+    Serial.printf("adsb: JSON parse error: %s t=%lums heap=%u min_heap=%u\n",
+                  err.c_str(), millis() - started_ms,
+                  static_cast<unsigned>(ESP.getFreeHeap()),
+                  static_cast<unsigned>(ESP.getMinFreeHeap()));
+    return requestFailed();
   }
 
   JsonArray ac = doc["ac"].as<JsonArray>();
   if (ac.isNull()) {
     s_aircraft_count = 0;
+    s_last_adsb_failure_ms = 0;
     return true;
   }
 
@@ -622,6 +668,9 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
   }
 
   s_aircraft_count = n;
+  s_last_adsb_failure_ms = 0;
+  s_adsb_failure_count = 0;
+  printRequestDiagnostics("request-ok", started_ms);
   Serial.printf("adsb: %u aircraft\n", static_cast<unsigned>(n));
   return true;
 }
@@ -687,6 +736,54 @@ bool enrichOnePending() {
                 entry->route[0] != '\0' ? entry->route : "(route unknown)",
                 entry->type[0] != '\0' ? entry->type : "(type unchanged)");
   return changed;
+}
+
+bool enrichmentAllowed() {
+  const uint32_t free_heap = ESP.getFreeHeap();
+  const size_t largest_block = largestFreeBlock();
+  const bool pause_critical =
+      free_heap < config::kEnrichmentPauseFreeHeap ||
+      largest_block < config::kEnrichmentPauseLargestBlock;
+
+  if (pause_critical) {
+    if (!s_enrichment_paused) {
+      Serial.printf("flight data: paused, heap=%u largest=%u\n",
+                    static_cast<unsigned>(free_heap),
+                    static_cast<unsigned>(largest_block));
+    }
+    s_enrichment_paused = true;
+    s_enrichment_recovery_started_ms = 0;
+    return false;
+  }
+
+  if (!s_enrichment_paused) {
+    return true;
+  }
+
+  const bool recovered =
+      free_heap >= config::kEnrichmentResumeFreeHeap &&
+      largest_block >= config::kEnrichmentResumeLargestBlock;
+  if (!recovered) {
+    s_enrichment_recovery_started_ms = 0;
+    return false;
+  }
+
+  const unsigned long now = millis();
+  if (s_enrichment_recovery_started_ms == 0) {
+    s_enrichment_recovery_started_ms = now;
+    return false;
+  }
+  if (now - s_enrichment_recovery_started_ms <
+      config::kEnrichmentResumeStableMs) {
+    return false;
+  }
+
+  s_enrichment_paused = false;
+  s_enrichment_recovery_started_ms = 0;
+  Serial.printf("flight data: resumed, heap=%u largest=%u\n",
+                static_cast<unsigned>(free_heap),
+                static_cast<unsigned>(largest_block));
+  return true;
 }
 
 }  // namespace services::adsb

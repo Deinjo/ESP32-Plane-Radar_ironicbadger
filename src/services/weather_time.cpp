@@ -113,6 +113,7 @@ bool fetch(double latitude, double longitude) {
   }
   http.setConnectTimeout(config::kWeatherRequestTimeoutMs);
   http.setTimeout(config::kWeatherRequestTimeoutMs);
+  http.useHTTP10(true);
 
   const int code = http.GET();
   if (code != HTTP_CODE_OK) {
@@ -121,11 +122,16 @@ bool fetch(double latitude, double longitude) {
     return false;
   }
 
-  const String payload = http.getString();
-  http.end();
+  WiFiClient* stream = http.getStreamPtr();
+  if (stream == nullptr) {
+    Serial.println("weather: response stream unavailable");
+    http.end();
+    return false;
+  }
 
   JsonDocument doc;
-  const DeserializationError error = deserializeJson(doc, payload);
+  const DeserializationError error = deserializeJson(doc, *stream);
+  http.end();
   if (error) {
     Serial.printf("weather: JSON parse error: %s\n", error.c_str());
     return false;

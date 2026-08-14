@@ -83,11 +83,21 @@ constexpr bool kAdsbShowGroundAircraft = false;
 // --- Flight enrichment (origin/destination and detailed aircraft type) ---
 constexpr char kFlightDataApiBase[] = "https://api.adsbdb.com/v0/";
 /** One lookup at a time; successful results remain cached for six hours. */
-constexpr unsigned long kFlightLookupMinIntervalMs = 750UL;
-constexpr unsigned long kFlightLookupTimeoutMs = 5000UL;
+constexpr unsigned long kFlightLookupMinIntervalMs = 5000UL;
+constexpr unsigned long kFlightLookupTimeoutMs = 3000UL;
 constexpr unsigned long kFlightLookupFailureBackoffMs = 30000UL;
 constexpr unsigned long kFlightCacheSuccessMs = 6UL * 60UL * 60UL * 1000UL;
 constexpr unsigned long kFlightCacheMissMs = 10UL * 60UL * 1000UL;
+/** Runtime protection: optional enrichment is paused before the system is critical. */
+constexpr uint32_t kEnrichmentPauseFreeHeap = 24000UL;
+constexpr uint32_t kEnrichmentResumeFreeHeap = 40000UL;
+constexpr size_t kEnrichmentPauseLargestBlock = 12000UL;
+constexpr size_t kEnrichmentResumeLargestBlock = 20000UL;
+constexpr unsigned long kEnrichmentResumeStableMs = 15000UL;
+constexpr uint32_t kCriticalFreeHeap = 8000UL;
+constexpr size_t kCriticalLargestBlock = 4000UL;
+constexpr unsigned long kCriticalHeapDurationMs = 5000UL;
+constexpr uint32_t kTaskWatchdogTimeoutSec = 15UL;
 
 // --- Weather and local time ---
 constexpr char kWeatherApiBase[] = "https://api.open-meteo.com/v1/forecast";

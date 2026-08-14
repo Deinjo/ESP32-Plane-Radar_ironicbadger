@@ -4,6 +4,8 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <esp_heap_caps.h>
+#include <esp_task_wdt.h>
 
 #include "config.h"
 #include "hardware/display.h"
@@ -23,6 +25,70 @@ bool g_radar_visible = false;
 unsigned long g_wifi_down_since = 0;
 unsigned long g_last_reconnect_ms = 0;
 unsigned long g_last_adsb_fetch_ms = 0;
+unsigned long g_last_diagnostic_ms = 0;
+unsigned long g_critical_heap_since_ms = 0;
+
+void printRuntimeDiagnostics() {
+  const wl_status_t wifi_status = WiFi.status();
+  const int rssi = wifi_status == WL_CONNECTED ? WiFi.RSSI() : 0;
+  Serial.printf("diag: uptime=%lus heap=%u min_heap=%u largest=%u wifi=%d rssi=%d radar=%d\n",
+                millis() / 1000UL, static_cast<unsigned>(ESP.getFreeHeap()),
+                static_cast<unsigned>(ESP.getMinFreeHeap()),
+                static_cast<unsigned>(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT)),
+                static_cast<int>(wifi_status), rssi, g_radar_visible ? 1 : 0);
+}
+
+void initRuntimeWatchdog() {
+  const esp_err_t init_result =
+      esp_task_wdt_init(config::kTaskWatchdogTimeoutSec, true);
+  if (init_result != ESP_OK && init_result != ESP_ERR_INVALID_STATE) {
+    Serial.printf("watchdog: init failed: %s\n", esp_err_to_name(init_result));
+    return;
+  }
+
+  const esp_err_t status = esp_task_wdt_status(nullptr);
+  if (status == ESP_ERR_NOT_FOUND) {
+    const esp_err_t add_result = esp_task_wdt_add(nullptr);
+    if (add_result != ESP_OK) {
+      Serial.printf("watchdog: subscribe failed: %s\n",
+                    esp_err_to_name(add_result));
+      return;
+    }
+  }
+  Serial.printf("watchdog: enabled, timeout=%lus\n",
+                static_cast<unsigned long>(config::kTaskWatchdogTimeoutSec));
+}
+
+void monitorCriticalHeap() {
+  const uint32_t free_heap = ESP.getFreeHeap();
+  const size_t largest_block =
+      heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+  const bool critical = free_heap < config::kCriticalFreeHeap ||
+                        largest_block < config::kCriticalLargestBlock;
+  if (!critical) {
+    g_critical_heap_since_ms = 0;
+    return;
+  }
+
+  if (g_critical_heap_since_ms == 0) {
+    g_critical_heap_since_ms = millis();
+    Serial.printf("watchdog: critical heap, heap=%u largest=%u\n",
+                  static_cast<unsigned>(free_heap),
+                  static_cast<unsigned>(largest_block));
+    return;
+  }
+
+  if (millis() - g_critical_heap_since_ms <
+      config::kCriticalHeapDurationMs) {
+    return;
+  }
+
+  Serial.printf("watchdog: restarting after critical heap, heap=%u largest=%u\n",
+                static_cast<unsigned>(free_heap),
+                static_cast<unsigned>(largest_block));
+  Serial.flush();
+  ESP.restart();
+}
 
 void showRadarIfConnected() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -86,11 +152,20 @@ void setup() {
   if (wifiSetupConnect()) {
     showRadarIfConnected();
   }
+  // WiFiManager may block during the initial connection or configuration
+  // portal. Start the runtime watchdog only after that startup phase.
+  initRuntimeWatchdog();
 }
 
 void loop() {
+  esp_task_wdt_reset();
   handleBootButton();
   wifiLoop();
+  monitorCriticalHeap();
+  if (millis() - g_last_diagnostic_ms >= 10000UL) {
+    g_last_diagnostic_ms = millis();
+    printRuntimeDiagnostics();
+  }
   if (g_radar_visible) {
     ui::radarDisplayTick();
   }
@@ -129,7 +204,8 @@ void loop() {
     } else if (services::weather::refreshIfDue(
                    services::location::lat(), services::location::lon())) {
       ui::radarDisplayRefreshAircraft();
-    } else if (services::adsb::enrichOnePending()) {
+    } else if (services::adsb::enrichmentAllowed() &&
+               services::adsb::enrichOnePending()) {
       ui::radarDisplayRefreshAircraft();
     }
   }
