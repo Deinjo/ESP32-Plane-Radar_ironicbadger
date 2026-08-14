@@ -16,3 +16,4 @@ include/config_local.h
 /tools/GetRoadsAndWaterForPlaneRadar/display_output/
 /tools/GetRoadsAndWaterForPlaneRadar/data
 /tools/GetRoadsAndWaterForPlaneRadar/__pycache__/
+/tools/radar_simulator/__pycache__

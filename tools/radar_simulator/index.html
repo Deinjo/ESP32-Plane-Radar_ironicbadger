@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plane Radar Simulator</title>
+  <link rel="stylesheet" href="simulator.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">ESP32 Plane Radar</p>
+        <h1>Display simulator</h1>
+        <p class="lede">A browser-side test bench for the 240 x 240 radar display.</p>
+      </div>
+      <div class="status-chip"><span class="status-dot"></span><span id="statusText">Live simulation</span></div>
+    </header>
+
+    <section class="workspace">
+      <div class="display-card">
+        <div class="display-frame">
+          <canvas id="radarCanvas" width="720" height="720" aria-label="Plane radar display"></canvas>
+        </div>
+        <div class="display-meta">
+          <span id="rangeReadout">Range 25 km</span>
+          <span id="aircraftReadout">4 aircraft</span>
+          <span id="clockReadout">12:00</span>
+        </div>
+        <section class="aircraft-table-section" aria-labelledby="aircraftTableTitle">
+          <div class="table-heading">
+            <h2 id="aircraftTableTitle">Visible aircraft</h2>
+            <span id="visibleAircraftCount">0 visible</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Callsign</th><th>Route</th><th>Startort</th><th>Zielort</th><th>Flugzeugtyp</th><th>Höhe</th><th>Aktuelle Richtung</th><th>Entfernung (km)</th></tr></thead>
+              <tbody id="aircraftTableBody"></tbody>
+            </table>
+            <p id="emptyAircraftMessage" class="empty-table">Keine Flugzeuge im aktuellen Radarbereich.</p>
+          </div>
+        </section>
+      </div>
+
+      <aside class="controls" aria-label="Simulator controls">
+        <section class="control-group">
+          <div class="group-heading"><span>00</span><h2>Radar setup</h2></div>
+          <label>Location
+            <select id="locationSelect">
+              <option value="dortmund" selected>(Default) Kleine Heide Dortmund</option>
+              <option value="duesseldorf">Flughafen Düsseldorf</option>
+              <option value="frankfurt">Flughafen Frankfurt am Main</option>
+            </select>
+          </label>
+          <div class="inline-fields">
+            <label>Latitude<input id="latitude" type="number" step="0.000001" value="51.483004"></label>
+            <label>Longitude<input id="longitude" type="number" step="0.000001" value="7.415811"></label>
+          </div>
+          <label class="toggle-row"><input id="milesToggle" type="checkbox"> Display distances in miles</label>
+          <label class="toggle-row"><input id="footerToggle" type="checkbox"> Show weather and clock</label>
+          <label class="toggle-row"><input id="weatherToggle" type="checkbox"> Show current weather</label>
+          <label class="toggle-row"><input id="fahrenheitToggle" type="checkbox"> Temperature in Fahrenheit</label>
+          <label class="toggle-row"><input id="altitudeToggle" type="checkbox" checked> Display altitude in metres</label>
+          <label class="toggle-row"><input id="clockToggle" type="checkbox" checked> Use 24-hour clock</label>
+          <label>Radar text size <output id="textScaleValue">100%</output>
+            <input id="textScale" type="range" min="80" max="130" step="5" value="90">
+          </label>
+        </section>
+        <section class="control-group">
+          <div class="group-heading"><span>01</span><h2>Simulation</h2></div>
+          <label>Radar range
+            <select id="rangeSelect">
+              <option value="5">5 km</option>
+              <option value="10">10 km</option>
+              <option value="15">15 km</option>
+              <option value="25" selected>25 km</option>
+            </select>
+          </label>
+          <label class="toggle-row"><input id="animateToggle" type="checkbox"> Animate aircraft</label>
+          <label class="toggle-row"><input id="liveToggle" type="checkbox" checked> Live ADS-B data</label>
+          <label class="toggle-row"><input id="nightToggle" type="checkbox"> Night mode</label>
+          <div class="inline-fields">
+            <label>Night start<input id="nightStart" type="time" value="22:00"></label>
+            <label>Night end<input id="nightEnd" type="time" value="07:00"></label>
+          </div>
+          <label>Simulation time<input id="simTime" type="time" value="12:00"></label>
+        </section>
+
+        <section class="control-group">
+          <div class="group-heading"><span>02</span><h2>Layers</h2></div>
+          <label class="toggle-row"><input id="gridToggle" type="checkbox" checked> Grid and crosshairs</label>
+          <label class="toggle-row"><input id="roadsToggle" type="checkbox" checked> Motorways</label>
+          <label class="toggle-row"><input id="primaryToggle" type="checkbox" checked> Primary roads</label>
+          <label class="toggle-row"><input id="citiesToggle" type="checkbox" checked> Cities</label>
+          <label class="toggle-row"><input id="runwaysToggle" type="checkbox" checked> Runways</label>
+          <label class="toggle-row"><input id="labelsToggle" type="checkbox" checked> Labels</label>
+          <label class="toggle-row"><input id="vectorsToggle" type="checkbox" checked> Track vectors</label>
+        </section>
+
+        <section class="control-group">
+          <div class="group-heading"><span>03</span><h2>Palette</h2></div>
+          <div class="color-grid">
+            <label>Background<input id="colorBackground" type="color" value="#040a1c"></label>
+            <label>Grid<input id="colorGrid" type="color" value="#106420"></label>
+            <label>Motorways<input id="colorRoad" type="color" value="#69737d"></label>
+            <label>Primary roads<input id="colorPrimary" type="color" value="#3c4650"></label>
+            <label>Cities<input id="colorCity" type="color" value="#aaaaaa"></label>
+            <label>Aircraft<input id="colorAircraft" type="color" value="#ff0000"></label>
+            <label>Labels<input id="colorLabel" type="color" value="#ffffff"></label>
+            <label>Vector<input id="colorVector" type="color" value="#ff00ff"></label>
+          </div>
+        </section>
+
+        <button id="resetButton" class="secondary-button" type="button">Reset simulator settings</button>
+      </aside>
+    </section>
+    <footer><span>Canvas output matches the firmware display size.</span><span>Local only &middot; no network calls</span></footer>
+  </main>
+  <script src="simulator.js"></script>
+</body>
+</html>
