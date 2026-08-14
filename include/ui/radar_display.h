@@ -16,4 +16,7 @@ void radarDisplayTick();
 /** Stream the current 240x240 display frame as a 24-bit BMP image. */
 void radarDisplayWriteBmp(Print& output);
 
+/** Return whether at least one complete display frame has been rendered. */
+bool radarDisplayFrameReady();
+
 }  // namespace ui

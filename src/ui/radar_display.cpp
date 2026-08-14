@@ -1289,4 +1289,6 @@ void radarDisplayWriteBmp(Print& output) {
   }
 }
 
+bool radarDisplayFrameReady() { return s_frame_ready; }
+
 }  // namespace ui

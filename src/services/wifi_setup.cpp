@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 
+#include <ArduinoJson.h>
 #include <cstdio>
 
 #include <Preferences.h>
@@ -163,6 +164,10 @@ void handleDisplayBmp() {
   if (!s_wm.server) {
     return;
   }
+  if (!ui::radarDisplayFrameReady()) {
+    s_wm.server->send(503, "text/plain", "Display frame not ready");
+    return;
+  }
   constexpr size_t kBmpSize = 54 + 240 * 240 * 3;
   s_wm.server->setContentLength(kBmpSize);
   s_wm.server->send(200, "image/bmp", "");
@@ -185,7 +190,8 @@ void handleAirportSearch() {
   if (!s_wm.server) return;
   String query = s_wm.server->arg("q");
   query.toUpperCase();
-  String body = "[";
+  JsonDocument document;
+  JsonArray results = document.to<JsonArray>();
   size_t count = 0;
   for (size_t i = 0; i < data::large_airports::kAirportCount && count < 50; ++i) {
     const auto& airport = data::large_airports::kAirports[i];
@@ -198,11 +204,13 @@ void handleAirportSearch() {
       const bool iata_match = airport.iata[0] != '\0' && iata.indexOf(query) >= 0;
       if (!ident_match && !iata_match) continue;
     }
-    if (count++ > 0) body += ",";
-    body += "{\"icao\":\"" + String(airport.ident) + "\",\"iata\":\"" +
-            String(airport.iata) + "\"}";
+    JsonObject result = results.add<JsonObject>();
+    result["icao"] = airport.ident;
+    result["iata"] = airport.iata;
+    ++count;
   }
-  body += "]";
+  String body;
+  serializeJson(document, body);
   s_wm.server->send(200, "application/json", body);
 }
 
@@ -213,10 +221,14 @@ void handleAirportLookup() {
     s_wm.server->send(404, "application/json", "{\"success\":false}");
     return;
   }
-  String body = "{\"success\":true,\"icao\":\"" + String(airport->ident) +
-                "\",\"iata\":\"" + String(airport->iata) +
-                "\",\"lat\":" + String(static_cast<double>(airport->lat_e7) / 1e7, 7) +
-                ",\"lon\":" + String(static_cast<double>(airport->lon_e7) / 1e7, 7) + "}";
+  JsonDocument document;
+  document["success"] = true;
+  document["icao"] = airport->ident;
+  document["iata"] = airport->iata;
+  document["lat"] = static_cast<double>(airport->lat_e7) / 1e7;
+  document["lon"] = static_cast<double>(airport->lon_e7) / 1e7;
+  String body;
+  serializeJson(document, body);
   s_wm.server->send(200, "application/json", body);
 }
 
