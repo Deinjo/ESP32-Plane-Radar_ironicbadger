@@ -1,275 +1,494 @@
 # Plane Radar
 
-<img width="800" height="450" alt="plane-radar" src="https://github.com/user-attachments/assets/716d0992-dab8-47ba-8f1a-2aec7f607419" />
+<img width="600" alt="Plane Radar device with round radar display" src="docs/images/plane-radar-device.png" />
 
-**3D printed case (STL + assembly):** [MakerWorld](https://makerworld.com/en/models/2872376-esp32-plane-radar-live-ads-b-on-a-round-display#profileId-3207083) · **Firmware:** [Releases](../../releases)
+Firmware for an **ESP32-C3 Super Mini** with a **1.28-inch round GC9A01 display** at 240 x 240 pixels. The device renders a live ADS-B radar around a configurable location and provides airport/runway data, routes, aircraft labels, weather, time, browser configuration, OTA updates, and a browser-based simulator.
 
-Firmware for an **ESP32-C3 Super Mini** and a **1.28″ round GC9A01** display (240×240). Shows a circular **ADS-B radar** around your configured location, with flight routes, detailed aircraft models, local weather/time, browser settings, and authenticated OTA updates.
+**3D-printed case:** [MakerWorld](https://makerworld.com/de/models/3039652-esp32-plane-radar#profileId-3417884)
+**Firmware releases:** [GitHub Releases](../../releases)
 
-## What it does
+## Features
 
-1. **Wi‑Fi setup** (if needed) — captive portal on AP **`PlaneRadar-Setup`**
-2. **Radar** — live aircraft from [adsb.fi](https://opendata.adsb.fi/) on a sonar-style grid
-3. **Useful labels** — route (for example `BOS-IND`), detailed aircraft model, and altitude
-4. **Readable footer** — current conditions, temperature, humidity, local time, and date
+- Live nearby aircraft from [adsb.fi](https://opendata.adsb.fi/)
+- Circular radar display with configurable 5, 10, 15, and 25 km range presets
+- Aircraft heading triangles, speed vectors, altitude, callsign, route, and compact aircraft type labels
+- Direction markers for aircraft outside the display range but inside the ADS-B query radius
+- Airport and runway overlay using embedded OurAirports data
+- ICAO or IATA airport labels and airport selection by ICAO/IATA code
+- Motorway, primary-road, city, water, grid, and aircraft map layers
+- Local weather, humidity, time, date, temperature units, altitude units, and text scaling
+- Configurable colors and layer visibility through the separate `Component Setup` page
+- Authenticated OTA firmware updates
+- Captive portal and LAN configuration through WiFiManager
+- Runtime diagnostics, heap monitoring, temporary enrichment backoff, and task watchdog protection
+- Browser-based simulator using the same airport, runway, and map data as the firmware
 
-After Wi‑Fi is saved, the device reconnects automatically; the radar runs in the main loop with periodic ADS-B updates (~3 s).
+## Hardware
 
-## Controls (BOOT, GPIO 9, active LOW)
+| Part | Specification |
+|------|---------------|
+| Controller | ESP32-C3 Super Mini |
+| Display | 1.28-inch round GC9A01, 240 x 240 |
+| Framework | Arduino via PlatformIO |
+| Serial monitor | 115200 baud |
+
+### Wiring
+
+| GC9A01 | ESP32-C3 |
+|--------|----------|
+| VCC | 3V3 |
+| GND | GND |
+| RST | GPIO 0 |
+| CS | GPIO 1 |
+| DC | GPIO 10 |
+| SDA / MOSI | GPIO 3 |
+| SCL / SCLK | GPIO 4 |
+| BOOT button | GPIO 9, active LOW |
+
+The display SPI configuration is defined in `include/config.h`. The current hardware configuration uses 40 MHz SPI, display inversion, and RGB order configured for the GC9A01 module used by this project.
+
+## First Start
+
+If no valid Wi-Fi credentials are stored, the device opens the setup access point:
+
+```text
+SSID: PlaneRadar-Setup
+URL: http://192.168.4.1
+```
+
+The setup screen also advertises the mDNS address:
+
+```text
+http://plane-radar.local
+```
+
+1. Connect a phone or computer to `PlaneRadar-Setup`.
+2. Open `http://192.168.4.1` or `http://plane-radar.local`.
+3. Enter the home Wi-Fi credentials.
+4. Save the settings.
+5. Reconnect the client to the home network.
+
+After connecting to Wi-Fi, the device is available at:
+
+```text
+http://plane-radar.local
+http://<device-ip>
+```
+
+Some clients resolve `.local` addresses slowly. The IP address shown in the serial monitor or router is the fallback.
+
+## Portal Pages
+
+The LAN portal and the setup access point expose the same configuration interface.
+
+### Main Page
+
+The main page provides links for:
+
+- Wi-Fi configuration
+- Common setup
+- Device information
+- Firmware update
+- Restart
+- Exit
+- Display preview
+
+The `Display` page shows a browser preview of the current round display and refreshes the BMP image periodically.
+
+### Common Setup
+
+`Common Setup` contains general device settings:
+
+- Radar latitude and longitude
+- Airport selection by ICAO or IATA code
+- Reset location to the configured default
+- Kilometer or mile distance labels
+- IATA or ICAO airport labels
+- Runway overlay enable/disable
+- Radar range
+- Footer and weather visibility
+- Fahrenheit/Celsius
+- Feet/metres
+- 12-hour/24-hour clock
+- Radar text scale from 80% to 130%
+- Night-mode enable/disable and start/end time
+- OTA password
+
+Common settings are stored persistently in NVS.
+
+### Component Setup
+
+`Component Setup` is intentionally separate from WiFiManager so the common page stays small and reliable.
+
+For each drawable radar component it provides:
+
+- Color selection
+- `Back to default`
+- Visibility `On` checkbox where the component is independently hideable
+
+Configured components include:
+
+- Background
+- Grid
+- Center marker
+- Labels
+- Aircraft
+- Track vector
+- Aircraft type labels
+- Altitude labels
+- Runways
+- Runway labels
+- Motorways
+- Primary roads
+- Cities
+- Footer background
+
+The footer's overall visibility remains available in Common Setup. Background and footer background are color-only because they are not independently hideable components in the display model.
+
+## BOOT Button
+
+The BOOT button is connected to GPIO 9 and is active LOW.
 
 | Action | Effect |
 |--------|--------|
-| **Short tap** | Cycle range preset (5 → 10 → 15 → 25 km); saved to flash |
-| **Hold 3 s** | Factory-reset Wi‑Fi, location, units, display settings, and OTA password; reboot into setup portal |
+| Short tap | Cycle the range preset: 5 -> 10 -> 15 -> 25 km |
+| Hold for 3 seconds | Clear Wi-Fi, location, units, display settings, and OTA password, then restart into setup |
+| Hold during power-on | Force the setup portal for credential recovery |
 
-During setup you can also hold BOOT at power-on to force a credential reset (same as the long press).
+## Radar Display
 
-## Wi‑Fi setup portal
+### Range Presets
 
-**First-time setup** (no saved Wi‑Fi):
+| Ring 3 label | Approximate outer aircraft scale |
+|--------------|----------------------------------|
+| 5 km / 3 mi | 6.7 km |
+| 10 km / 6 mi | 13.3 km |
+| 15 km / 9 mi | 20 km |
+| 25 km / 16 mi | 33.3 km |
 
-1. Connect to **`PlaneRadar-Setup`**
-2. Open **`http://plane-radar.local`** (preferred) or **`http://192.168.4.1`** — both are shown on the yellow setup screen; captive portal may open automatically
-3. Set home Wi‑Fi, then save
-
-**Reconfigure anytime** (after the device is on your network):
-
-1. Open **`http://plane-radar.local`** or **`http://<device-ip>`** (e.g. from your router or serial log at boot)
-2. Choose **Setup**
-3. Change coordinates, display options, units, or OTA password; save
-
-The same portal runs on the setup AP and on the device’s LAN IP while connected to Wi‑Fi. mDNS hostname is `plane-radar` → **plane-radar.local** (`kPortalHostname` in `config.h`). Some clients resolve `.local` slowly; use the IP if needed.
-
-Changing coordinates no longer requires a credential reset. The new position is validated in the browser and firmware, saved to NVS, and used by the next aircraft/weather refresh.
-
-**Custom fields** (stored in NVS):
-
-| Field | Purpose |
-|-------|---------|
-| **Latitude / Longitude** | Radar center and ADS-B query position (defaults in `config.h` until set) |
-| **Display distances in miles** | Ring scale label in **mi** instead of **km** (e.g. `6mi` vs `10km`) |
-| **Show airport runways** | Major-airport runway overlay on the radar (off to hide) |
-| **Show weather and clock** | Enables/disables the complete bottom footer |
-| **Show current weather** | Shows current condition, temperature, and humidity |
-| **Temperature in Fahrenheit** | Uses °F instead of °C |
-| **TDisplay altitude in metres** | Uses m instead of ft |
-| **Use 24-hour clock** | Uses 24-hour instead of compact 12-hour time |
-| **Radar text size (%)** | Scales radar labels and footer text from 80–130%; default is 120% |
-| **OTA password** | Password for firmware uploads; username is `admin` |
-
-After a reset, the device reboots and shows the setup screen immediately (no “Connecting” loop on stale credentials).
-
-## Radar display
-
-### Grid
-
-- Dark blue background, subdued green rings and crosshairs
-- White **N / S / E / W** at the bezel; range label on the **east** spoke (ring 3 = ¾ of outer radius)
-- White center dot
-
-Layout and colors: `include/ui/radar_theme.h`.
-
-### Range presets
-
-| Ring 3 label | Outer radius (aircraft scale) |
-|------------|-------------------------------|
-| 5 km / 3 mi | ~6.7 km |
-| 10 km / 6 mi | ~13.3 km (default) |
-| 15 km / 9 mi | ~20 km |
-| 25 km / 16 mi | ~33.3 km |
-
-Preset and miles/km choice persist across reboot (`planeradar` NVS namespace).
-
-### Runways
-
-- Major airports from OurAirports (`large_airport`); all open runway strips in range (helipads excluded)
-- Teal runway lines with one ICAO label per airport (e.g. `KJFK`); toggle in the Wi‑Fi setup portal
-- Update the embedded list: `python3 scripts/build_large_airports.py`
+The selected range and distance unit survive reboot.
 
 ### Aircraft
 
-- **Inside the outer ring** — red heading triangle, magenta speed vector (clipped at the ring), route / detailed type / altitude tags
-- **Outside the ring** (still within ADS-B fetch) — small **red dot on the screen rim** at the correct bearing (direction cue; not distance-accurate past the ring)
-- **Tags** — placed toward the **center**: west (left) → tag on the **right** of the symbol; east (right) → tag on the **left**
-- **Route fallback** — the callsign is shown until route data arrives, and remains the fallback when no route is known
-- **Detailed type** — aircraft data is compacted for the display (for example `Boeing 737-800` → `B737-800`)
+- Aircraft inside the outer ring are rendered as red heading triangles.
+- A magenta speed vector shows the projected movement direction.
+- Aircraft outside the ring but inside the ADS-B query radius are shown as bearing markers on the display rim.
+- Callsigns are shown while route enrichment is unavailable.
+- Routes are displayed as origin-destination pairs such as `FRA-DUS` when available.
+- Aircraft types are compacted for the display, for example `Boeing 737-800` becomes `B737-800`.
+- Ground aircraft are hidden by default.
 
-As range decreases (or aircraft approach), targets move inward; beyond-ring dots become full symbols when they cross the outer ring.
+Origin and destination are not part of the basic ADS-B position response. Active callsigns are optionally enriched through [ADSBDB](https://www.adsbdb.com/). Successful results are cached for six hours and misses for ten minutes. Enrichment is rate-limited and uses an increasing retry backoff after TLS or network failures so it cannot block the main radar function continuously.
 
-Origin/destination is not transmitted in ADS-B messages. The firmware enriches each active callsign through [ADSBDB](https://www.adsbdb.com/), rate-limits lookups, and caches successful results for six hours (misses for ten minutes). It first requests aircraft and route together, then retries the callsign-only endpoint when ADSBDB does not recognize the aircraft hex code. Route databases are based on known/scheduled callsigns, so private, repositioning, diverted, or recently changed flights may still have no route or an imperfect match.
+### Airports and Runways
 
-### Weather and time
+Airport and runway data is generated from [OurAirports](https://ourairports.com/data/).
 
-The bottom overlay uses the radar coordinates. Current conditions come from [Open-Meteo](https://open-meteo.com/) every 15 minutes; its location timezone offset and NTP provide the clock. The two rows use plain-language conditions and label relative humidity (`RH`):
+- Only `large_airport` entries are embedded.
+- Open runway strips are included.
+- Helipads are excluded.
+- Runways are drawn in teal when enabled.
+- Airport labels can use ICAO or IATA codes.
+- The browser setup can select airports by either code.
 
-```text
-OVERCAST 82F RH100%
-21:45 25 JUL
+Regenerate the embedded data with:
+
+```bash
+python scripts/build_large_airports.py
 ```
 
-Disable just the weather row or the complete footer in **Setup**. Radar and
-footer text defaults to 110% and can be adjusted from 80–130% in the same page.
+The generated files are:
 
-### ADS-B
+```text
+include/data/large_airports.h
+src/data/large_airports_data.cpp
+```
 
-- Source: `https://opendata.adsb.fi/api/v3/`
-- Route and aircraft enrichment: `https://api.adsbdb.com/v0/`
-- Fetch radius: `ui::radar::fetchRadiusKm()` — scales with the active preset to roughly the screen edge (so rim dots have data)
-- Poll interval: `kAdsbFetchIntervalMs` (3 s) in `config.h`
-- Ground aircraft hidden by default (`kAdsbShowGroundAircraft`)
+### Roads and Map Layers
 
-The device sends the configured coordinates to adsb.fi and Open-Meteo, and sends active callsign/Mode-S identifiers to ADSBDB.
+Road and water geometry is embedded in the firmware for the supported display area. Map data is rendered with circular clipping to the active radar range.
 
-### Roads
+Map data is based on [OpenStreetMap](https://www.openstreetmap.org/) contributors and is distributed under the ODbL where applicable.
 
-Map data © OpenStreetMap contributors, ODbL.
+### Weather and Time
+
+Current conditions and timezone data come from [Open-Meteo](https://open-meteo.com/). Weather refreshes periodically using the configured radar location. NTP is used for the clock.
+
+The weather row and complete footer can be disabled independently in Common Setup.
+
+## Runtime Stability
+
+The firmware uses several safeguards for the limited ESP32-C3 heap:
+
+- ADS-B and weather responses are parsed directly from HTTP streams instead of retaining complete response strings.
+- ADS-B JSON is filtered to the fields required by the display.
+- Optional ADSBDB flight enrichment is rate-limited and cached.
+- Repeated ADS-B TLS failures use an increasing backoff up to several minutes.
+- Optional flight enrichment can be paused when the current heap or largest free block becomes low. It resumes automatically after a stable recovery period.
+- A 15-second task watchdog detects a genuine main-loop stall after the initial Wi-Fi/setup phase.
+- A controlled restart is only considered when the current free heap or largest free block remains critically low for several seconds.
+
+The historical `min_heap` value is diagnostic only. It does not trigger a reset by itself.
+
+Typical serial diagnostics look like:
+
+```text
+diag: uptime=120s heap=73000 min_heap=16000 largest=38000 wifi=3 rssi=-25 radar=1
+adsb: request-ok t=900ms heap=70000 min_heap=16000
+adsb: 8 aircraft
+```
+
+## Browser Simulator
+
+The simulator is a framework-free browser implementation of the 240 x 240 radar display. It uses the repository's airport, runway, road, and water data where available and can use a local proxy for live ADS-B data.
+
+From the repository root:
+
+```powershell
+python tools/radar_simulator/server.py
+```
+
+Open:
+
+```text
+http://localhost:8080/tools/radar_simulator/
+```
+
+The simulator includes:
+
+- Radar range projection
+- Circular clipping
+- Aircraft symbols and vectors
+- Routes and aircraft type enrichment
+- Airport and runway overlays
+- Location selection
+- Unit, footer, weather, altitude, clock, and text-scale controls
+- Layer visibility and color controls
+- Night mode preview
+- Mock-data fallback when live data is unavailable
+
+### Windows Executable
+
+Build the standalone simulator executable with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/radar_simulator/build_windows.ps1
+```
+
+Output:
+
+```text
+dist/PlaneRadarSimulator.exe
+```
+
+Keep the console window open while using the executable because it hosts the local proxy/server.
 
 ## Configuration
 
-Edit **`include/config.h`** for hardware and behavior:
+Hardware and behavior defaults are defined in `include/config.h`.
 
-| Area | Keys / notes |
-|------|----------------|
-| Portal | `kPortalApName`, `kPortalIp`, `kPortalHostname` / `kPortalHostUrl` (mDNS; needs `-DWM_MDNS` in `platformio.ini`) |
-| Wi‑Fi timing | connect attempts, reconnect grace, portal timeout (`0` = no timeout) |
-| BOOT | `kBootPin`, `kBootResetHoldMs`, `kBootTapMinMs` |
-| Display SPI | pins, `kDisplayInvert`, `kDisplayRgbOrder`, `kDisplaySpiWriteHz` |
-| Default location | `kDefaultRadarLat`, `kDefaultRadarLon` (until portal overrides) |
-| ADS-B | `kAdsbFetchIntervalMs`, `kAdsbShowGroundAircraft` |
-| Flight enrichment | lookup interval, timeout, and cache durations |
-| Weather | endpoint, request timeout, and refresh interval |
-| Defaults | initial OTA credentials |
+| Area | Important values |
+|------|------------------|
+| Portal | AP name, portal IP, hostname, mDNS |
+| Wi-Fi | Connect/reconnect timing and portal timeout |
+| BOOT | GPIO pin, tap duration, reset hold duration |
+| Display | SPI pins, inversion, RGB order, SPI frequency |
+| Location | Default latitude and longitude |
+| ADS-B | Fetch interval and ground-aircraft visibility |
+| Flight enrichment | Lookup interval, timeout, cache durations, failure backoff |
+| Weather | Endpoint, timeout, and refresh interval |
+| Runtime protection | Heap thresholds and task-watchdog timeout |
+| OTA | Initial username/password defaults |
 
-Range presets: `include/ui/radar_range.h` (`kRangePresets`).
+Machine-specific Wi-Fi defaults can be placed in the ignored `include/config_local.h`. Use `include/config_local.example.h` as a starting point.
 
-## Project layout
+## Project Layout
 
-```
+```text
 include/
   config.h
+  data/large_airports.h
   hardware/
-    lgfx_config.hpp
-    display.h
-    display_font.h
-  data/
-    large_airports.h
-  ui/
-    radar_theme.h
-    radar_range.h
-    radar_display.h
-    runway_overlay.h
-    status_screens.h
   services/
-    wifi_setup.h
-    radar_location.h
-    adsb_client.h
-    display_settings.h
-    ota_update.h
-    weather_time.h
+  ui/
 data/
-  ui_font.vlw              — embedded smooth UI font (Noto Sans Bold)
+  ui_font.vlw
+partitions/
+  plane_radar.csv
 scripts/
   build_large_airports.py
+  merge-firmware.sh
+  merge_firmware.py
 src/
   main.cpp
   data/
-    large_airports_data.cpp
   hardware/
-  ui/
   services/
+  ui/
+tools/
+  radar_simulator/
+  GetRoadsAndWaterForPlaneRadar/
 ```
 
-## Wiring (GC9A01 ↔ ESP32-C3 Super Mini)
+## Build and Upload
 
-| Display | ESP32-C3 |
-|---------|----------|
-| VCC | 3V3 |
-| GND | GND |
-| RST | GPIO **0** |
-| CS | GPIO **1** |
-| DC | GPIO **10** |
-| SDA (MOSI) | GPIO **3** |
-| SCL (SCLK) | GPIO **4** |
-| BOOT (user) | GPIO **9** |
-
-## Build
+The PlatformIO environment is `supermini`.
 
 ```bash
-pio run -t upload
-pio device monitor
+pio run -e supermini
+pio run -t upload -e supermini
+pio device monitor -b 115200
 ```
 
-- PlatformIO env: **`supermini`**
-- Serial: **115200** baud
-- USB CDC on boot enabled in `platformio.ini` for the Super Mini
+The project uses:
 
-### Web-flashable release image
+- PlatformIO
+- Espressif32 platform 6.5.0
+- Arduino framework
+- C++17
+- LovyanGFX
+- WiFiManager
+- ArduinoJson 7
 
-Single `.bin` for [esptool-js](https://espressif.github.io/esptool-js/) and similar tools (ESP32-C3, 4 MB, flash at **0x0**):
+## Web-Flashable Images
+
+Build the merged full-flash image:
 
 ```bash
-chmod +x scripts/merge-firmware.sh   # once
+chmod +x scripts/merge-firmware.sh
 ./scripts/merge-firmware.sh
 ```
 
-Writes `release/plane-radar-merged.bin`. Skip rebuild if firmware is already built:
+The merged image is written to:
+
+```text
+release/plane-radar-merged.bin
+```
+
+For an already-built firmware:
 
 ```bash
 ./scripts/merge-firmware.sh --no-build
 ```
 
-Or via PlatformIO only (output: `.pio/build/supermini/firmware-merged.bin`):
+The merged/full image contains the bootloader and partition table and is flashed at offset `0x0`. It must not be uploaded through the OTA page.
 
-```bash
-pio run -e supermini
-pio run -t merge -e supermini
+## OTA Updates
+
+1. Open `http://plane-radar.local` or the device IP.
+2. Choose **Firmware update**.
+3. Log in as `admin` with the configured OTA password.
+4. Upload the application image ending in `-ota.bin`.
+5. Keep the device powered until it restarts.
+
+The initial OTA password is:
+
+```text
+plane-radar
 ```
 
-Put the board in download mode (hold **BOOT**, tap **RESET**), then flash with Chrome/Edge over USB.
+Change it before exposing the device to a shared network.
 
-### OTA firmware updates
+If migrating from the old single-application partition layout, flash the new full/merged image over USB once. Later updates can use the OTA image.
 
-The firmware uses two 1.75 MB application slots. After the OTA-capable partition table is installed, updates can be uploaded without USB:
+## CI and Releases
 
-1. Open `http://plane-radar.local`
-2. Choose **Firmware update**
-3. Sign in with username `admin` and your configured OTA password
-4. Upload the release file ending in **`-ota.bin`** (or PlatformIO's `.pio/build/supermini/firmware.bin`)
-5. Keep power connected while the device writes flash and restarts
+GitHub Actions provides:
 
-The initial password is **`plane-radar`**. Change it under **Setup** before using the device on a shared network.
+| Workflow | Trigger | Output |
+|----------|---------|--------|
+| Build | Push or pull request to `main` | Firmware artifacts for `supermini` |
+| Release | Git tag matching `v*` | Full image, OTA image, and checksums |
 
-> **One-time migration:** firmware built with the old single-app partition cannot install this new partition table through app-only OTA. Flash the new **`-full.bin`**/merged image over USB once. Every later update can use the OTA image.
-
-Never upload the merged/full image to the OTA form; it contains the bootloader and partition table and is only for flashing at offset `0x0`.
-
-### CI and releases (GitHub Actions)
-
-| Workflow | When | Output |
-|----------|------|--------|
-| [Build](.github/workflows/build.yml) | Push / PR to `main` | Artifact `plane-radar-supermini` (merged + split `.bin` files, ~90 days) |
-| [Release](.github/workflows/release.yml) | Git tag `v*` (e.g. `v1.0.0`) | GitHub Release `-full.bin` and `-ota.bin` assets + checksums |
-
-To ship a version users can download:
+Create a release with:
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-The release workflow attaches both images. Use `-full.bin` at offset `0x0` for first install/recovery and `-ota.bin` in the device's authenticated firmware page.
+Use the full image for first installation or recovery. Use the OTA image in the authenticated firmware page.
 
-## Dependencies
+## Runtime Services and Dependencies
+
+External runtime services:
+
+- [adsb.fi](https://opendata.adsb.fi/) - nearby aircraft
+- [ADSBDB](https://www.adsbdb.com/) - optional route and aircraft-type enrichment
+- [Open-Meteo](https://open-meteo.com/) - weather and timezone data
+- [OurAirports](https://ourairports.com/data/) - generated airport/runway dataset
+- [OpenStreetMap](https://www.openstreetmap.org/) - map data source
+
+PlatformIO dependencies:
 
 - [LovyanGFX](https://github.com/lovyan03/LovyanGFX)
 - [WiFiManager](https://github.com/tzapu/WiFiManager)
 - [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
 
-## Runtime data services:
+## Troubleshooting
 
-- [adsb.fi](https://opendata.adsb.fi/) — nearby aircraft
-- [ADSBDB](https://www.adsbdb.com/) — route and detailed aircraft data
-- [Open-Meteo](https://open-meteo.com/) — current weather and local timezone offset
+### Setup page shows only Save and Connected
+
+Use the current `Common Setup` and `Component Setup` pages. The color and layer settings are intentionally separate from the WiFiManager parameter page to reduce page-generation memory usage.
+
+If `.local` does not resolve, open the device IP from the serial log.
+
+### ADS-B requests fail with TLS or DNS errors
+
+The radar keeps its last valid data while failed requests use a backoff. Check:
+
+- Wi-Fi signal strength
+- router DNS availability
+- access to `opendata.adsb.fi`
+- current heap and `largest` diagnostic values
+
+Optional flight enrichment may pause temporarily while the main ADS-B radar continues running.
+
+### Watchdog output appears during startup
+
+The task watchdog is intentionally enabled only after the initial Wi-Fi/setup phase. A watchdog message after startup indicates that the main loop was blocked for longer than the configured timeout.
+
+### First installation or recovery
+
+Use the full/merged image at flash offset `0x0`. Do not upload it through the OTA form.
+
+## Licensing, Attribution, and Origins
+
+### Project License
+
+The firmware source in this repository is distributed under the [MIT License](LICENSE). The license and the copyright notice in `LICENSE` must remain with copies or substantial portions of the software.
+
+This repository is derived from the work of:
+
+- [WatskeBart/ESP32-Plane-Radar](https://github.com/WatskeBart/ESP32-Plane-Radar)
+- [MatixYo/ESP32-Plane-Radar](https://github.com/MatixYo/ESP32-Plane-Radar)
+
+The original project concept and substantial parts of the original implementation are credited to the original authors. Changes and additions in this repository are maintained by the current project contributors. The complete upstream copyright and license information remains in [`LICENSE`](LICENSE).
+
+### Third-Party Software
+
+The firmware uses third-party libraries. Each library remains subject to its own license and copyright notices:
+
+- [LovyanGFX](https://github.com/lovyan03/LovyanGFX)
+- [WiFiManager](https://github.com/tzapu/WiFiManager)
+- [ArduinoJson](https://github.com/bblanchon/ArduinoJson)
+
+The versions used for a build are declared in `platformio.ini`. Refer to the respective upstream repositories for their current license texts and notices.
+
+### Data Sources and Services
+
+- Map geometry is derived from [OpenStreetMap](https://www.openstreetmap.org/). Where OSM data is included or displayed, attribution is required under the [ODbL](https://opendatacommons.org/licenses/odbl/) and should include: `© OpenStreetMap contributors`.
+- Airport and runway data is generated from [OurAirports](https://ourairports.com/data/). The generated dataset is included in the firmware and should retain its source reference and any applicable current source terms.
+- Live aircraft data is requested from [adsb.fi](https://opendata.adsb.fi/). Optional route and aircraft-type enrichment uses [ADSBDB](https://www.adsbdb.com/).
+- Weather and timezone data are requested from [Open-Meteo](https://open-meteo.com/). Use of these services remains subject to their current terms, attribution requirements, rate limits, and availability.
+
+### Project Assets
+
+- The device photo in `docs/images/plane-radar-device.png` is a project asset. Before publishing or redistributing the repository, confirm that the repository has permission to redistribute this image and add a photographer/copyright credit here if required.
+- The 3D-printable case is provided through [MakerWorld](https://makerworld.com/de/models/3039652-esp32-plane-radar#profileId-3417884). The case's license and redistribution terms are separate from the firmware license and must be checked on the MakerWorld project page.
+
+This section describes the project's known origins and attribution requirements; it is not legal advice. When redistributing hardware, firmware, generated data, or project images, preserve the relevant license files, notices, and source attributions.
 
 ## Credits
-This project is a clone of WatskeBart/ESP32-Plane-Radar by WatskeBart which is bases (fork) of MatixYo/ESP32-Plane-Radar by MatixYo. All credit for the original concept and implementation goes to them.
+
+Thanks to the original project authors, the maintainers of the third-party libraries, the providers of the runtime services, and the contributors to the open data used by this project.
