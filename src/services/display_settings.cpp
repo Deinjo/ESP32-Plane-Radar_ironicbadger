@@ -21,6 +21,7 @@ constexpr char kKeyTextScale[] = "fontPct";
 constexpr char kKeyNightEnabled[] = "nightOn";
 constexpr char kKeyNightStart[] = "nightStart";
 constexpr char kKeyNightEnd[] = "nightEnd";
+constexpr char kKeyUseIata[] = "useIata";
 constexpr char kKeyOtaPassword[] = "otaPass";
 constexpr char kKeyColorBackground[] = "colBg";
 constexpr char kKeyColorGrid[] = "colGrid";
@@ -57,6 +58,7 @@ bool s_altitude_metres = false;
 bool s_use_24_hour_clock = true;
 int s_text_scale_percent = kTextScaleDefaultPercent;
 bool s_night_enabled = false;
+bool s_use_iata = false;
 uint16_t s_night_start = 22 * 60;
 uint16_t s_night_end = 7 * 60;
 
@@ -201,6 +203,7 @@ void loadDefaults() {
   s_use_24_hour_clock = true;
   s_text_scale_percent = kTextScaleDefaultPercent;
   s_night_enabled = false;
+  s_use_iata = false;
   s_night_start = 22 * 60;
   s_night_end = 7 * 60;
   std::memcpy(s_colors, kDefaultColors, sizeof(s_colors));
@@ -223,6 +226,7 @@ void persist() {
   prefs.putBool(kKeyNightEnabled, s_night_enabled);
   prefs.putUShort(kKeyNightStart, s_night_start);
   prefs.putUShort(kKeyNightEnd, s_night_end);
+  prefs.putBool(kKeyUseIata, s_use_iata);
   prefs.putString(kKeyOtaPassword, s_ota_password);
   prefs.putULong(kKeyColorBackground, s_colors[0]);
   prefs.putULong(kKeyColorGrid, s_colors[1]);
@@ -273,6 +277,7 @@ void init() {
   s_night_enabled = prefs.getBool(kKeyNightEnabled, false);
   s_night_start = prefs.getUShort(kKeyNightStart, 22 * 60);
   s_night_end = prefs.getUShort(kKeyNightEnd, 7 * 60);
+  s_use_iata = prefs.getBool(kKeyUseIata, false);
   if (s_night_start >= 24 * 60) s_night_start = 22 * 60;
   if (s_night_end >= 24 * 60) s_night_end = 7 * 60;
   const char* color_keys[] = {
@@ -331,6 +336,8 @@ bool nightModeActive(int local_minute) {
   return local_minute >= s_night_start || local_minute < s_night_end;
 }
 
+bool useIataCodes() { return s_use_iata; }
+
 const char* otaPassword() { return s_ota_password; }
 
 uint32_t color(ColorId id) {
@@ -357,7 +364,8 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                     const char* ota_password_value,
                     const char* night_enabled_checkbox,
                     const char* night_start_value,
-                    const char* night_end_value) {
+                    const char* night_end_value,
+                    const char* use_iata_checkbox) {
   s_footer_enabled = checkboxChecked(footer_checkbox);
   s_weather_enabled = checkboxChecked(weather_checkbox);
   s_temperature_fahrenheit = checkboxChecked(fahrenheit_checkbox);
@@ -368,6 +376,7 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
     s_text_scale_percent = text_scale_percent;
   }
   s_night_enabled = checkboxChecked(night_enabled_checkbox);
+  s_use_iata = checkboxChecked(use_iata_checkbox);
   uint16_t parsed_time = 0;
   if (parseTimeMinute(night_start_value, &parsed_time)) {
     s_night_start = parsed_time;

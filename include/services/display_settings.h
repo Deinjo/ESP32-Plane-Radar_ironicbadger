@@ -23,6 +23,7 @@ bool nightModeEnabled();
 uint16_t nightStartMinute();
 uint16_t nightEndMinute();
 bool nightModeActive(int local_minute);
+bool useIataCodes();
 const char* otaPassword();
 
 enum class ColorId : uint8_t {
@@ -74,7 +75,8 @@ void saveFromPortal(const char* footer_checkbox, const char* weather_checkbox,
                      const char* ota_password_value,
                      const char* night_enabled_checkbox,
                      const char* night_start_value,
-                     const char* night_end_value);
+                     const char* night_end_value,
+                     const char* use_iata_checkbox);
 
 /** Store HTML color input values as persistent 0xRRGGBB colors. */
 void saveColorsFromPortal(const char* background, const char* grid,

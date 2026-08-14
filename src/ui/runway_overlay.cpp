@@ -17,6 +17,13 @@ namespace lgfx_fonts = lgfx::v1::fonts;
 namespace ui::runway {
 namespace {
 
+const char* airportDisplayCode(const data::large_airports::Airport& airport) {
+  if (services::settings::useIataCodes() && airport.iata[0] != '\0') {
+    return airport.iata;
+  }
+  return airport.ident;
+}
+
 constexpr float kKmPerDeg = 111.0f;
 constexpr float kDegToRad = 0.01745329252f;
 constexpr size_t kMaxAirportLabels = 32;
@@ -250,7 +257,7 @@ void drawAirportLabel(lgfx::LGFXBase& gfx,
   int lx = 0;
   int ly = 0;
   offsetLabelFromCenter(ax, ay, &lx, &ly);
-  drawBoldRunwayLabel(gfx, ap.ident, lx, ly);
+  drawBoldRunwayLabel(gfx, airportDisplayCode(ap), lx, ly);
 }
 
 }  // namespace

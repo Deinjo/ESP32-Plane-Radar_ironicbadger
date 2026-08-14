@@ -59,13 +59,13 @@ def is_helipad(row: dict[str, str]) -> bool:
 
 
 def build_dataset() -> tuple[
-    list[tuple[str, int, int]],
+    list[tuple[str, str, int, int]],
     list[tuple[int, int, int, int, int, int]],
 ]:
     airports = fetch_csv(AIRPORTS_URL)
     runways = fetch_csv(RUNWAYS_URL)
 
-    large_idents: dict[str, tuple[int, int]] = {}
+    large_idents: dict[str, tuple[str, int, int]] = {}
     for a in airports:
         if a.get("type") != "large_airport":
             continue
@@ -76,12 +76,16 @@ def build_dataset() -> tuple[
         lon = coord_e7(a.get("longitude_deg"))
         if lat is None or lon is None:
             continue
-        large_idents[ident] = (lat, lon)
+        iata = (a.get("iata_code") or "").strip().upper()
+        if len(iata) != 3:
+            iata = ""
+        large_idents[ident] = (iata, lat, lon)
 
     airport_rows = sorted(
-        (ident, lat, lon) for ident, (lat, lon) in large_idents.items()
+        (ident, iata, lat, lon)
+        for ident, (iata, lat, lon) in large_idents.items()
     )
-    airport_index = {ident: idx for idx, (ident, _, _) in enumerate(airport_rows)}
+    airport_index = {ident: idx for idx, (ident, _, _, _) in enumerate(airport_rows)}
 
     segments: list[tuple[int, int, int, int, int, int]] = []
     for r in runways:
@@ -133,6 +137,7 @@ def render_header(airport_count: int, segment_count: int) -> str:
             "",
             "struct Airport {",
             "  char ident[5];",
+            "  char iata[4];",
             "  int32_t lat_e7;",
             "  int32_t lon_e7;",
             "};",
@@ -159,7 +164,7 @@ def render_header(airport_count: int, segment_count: int) -> str:
 
 
 def render_cpp(
-    airport_rows: list[tuple[str, int, int]],
+    airport_rows: list[tuple[str, str, int, int]],
     segments: list[tuple[int, int, int, int, int, int]],
 ) -> str:
     lines = [
@@ -170,8 +175,8 @@ def render_cpp(
         "",
         "const Airport kAirports[] = {",
     ]
-    for ident, lat, lon in airport_rows:
-        lines.append(f'  {{"{ident}", {lat}, {lon}}},')
+    for ident, iata, lat, lon in airport_rows:
+        lines.append(f'  {{"{ident}", "{iata}", {lat}, {lon}}},')
     lines += [
         "};",
         "",

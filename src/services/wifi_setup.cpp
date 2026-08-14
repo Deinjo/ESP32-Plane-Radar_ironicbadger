@@ -14,6 +14,7 @@
 #endif
 
 #include "config.h"
+#include "data/large_airports.h"
 #include "hardware/display.h"
 #include "services/display_settings.h"
 #include "services/ota_update.h"
@@ -159,6 +160,65 @@ void handleDisplayBmp() {
   ui::radarDisplayWriteBmp(client);
 }
 
+const data::large_airports::Airport* findAirportByCode(const String& code) {
+  for (size_t i = 0; i < data::large_airports::kAirportCount; ++i) {
+    const auto& airport = data::large_airports::kAirports[i];
+    if (code.equalsIgnoreCase(airport.ident) ||
+        (airport.iata[0] != '\0' && code.equalsIgnoreCase(airport.iata))) {
+      return &airport;
+    }
+  }
+  return nullptr;
+}
+
+void handleAirportSearch() {
+  if (!s_wm.server) return;
+  String query = s_wm.server->arg("q");
+  query.toUpperCase();
+  String body = "[";
+  size_t count = 0;
+  for (size_t i = 0; i < data::large_airports::kAirportCount && count < 50; ++i) {
+    const auto& airport = data::large_airports::kAirports[i];
+    String ident = airport.ident;
+    String iata = airport.iata;
+    ident.toUpperCase();
+    iata.toUpperCase();
+    if (query.length() > 0) {
+      const bool ident_match = ident.indexOf(query) >= 0;
+      const bool iata_match = airport.iata[0] != '\0' && iata.indexOf(query) >= 0;
+      if (!ident_match && !iata_match) continue;
+    }
+    if (count++ > 0) body += ",";
+    body += "{\"icao\":\"" + String(airport.ident) + "\",\"iata\":\"" +
+            String(airport.iata) + "\"}";
+  }
+  body += "]";
+  s_wm.server->send(200, "application/json", body);
+}
+
+void handleAirportLookup() {
+  if (!s_wm.server) return;
+  const auto* airport = findAirportByCode(s_wm.server->arg("code"));
+  if (!airport) {
+    s_wm.server->send(404, "application/json", "{\"success\":false}");
+    return;
+  }
+  String body = "{\"success\":true,\"icao\":\"" + String(airport->ident) +
+                "\",\"iata\":\"" + String(airport->iata) +
+                "\",\"lat\":" + String(static_cast<double>(airport->lat_e7) / 1e7, 7) +
+                ",\"lon\":" + String(static_cast<double>(airport->lon_e7) / 1e7, 7) + "}";
+  s_wm.server->send(200, "application/json", body);
+}
+
+void handleLocationDefault() {
+  if (!s_wm.server) return;
+  services::location::clear();
+  s_wm.server->send(200, "application/json",
+                    "{\"success\":true,\"lat\":" +
+                        String(config::kDefaultRadarLat, 7) +
+                        ",\"lon\":" + String(config::kDefaultRadarLon, 7) + "}");
+}
+
 constexpr int kCoordParamLen = 20;
 constexpr char kLatitudeInputAttrs[] =
     "type=\"number\" step=\"0.000001\" min=\"-90\" max=\"90\"";
@@ -171,10 +231,32 @@ constexpr int kTextScaleParamLen = 4;
 WiFiManagerParameter s_param_lat("radar_lat", "Latitude (deg)", "0",
                                 kCoordParamLen, kLatitudeInputAttrs);
 WiFiManagerParameter s_param_lon("radar_lon", "Longitude (deg)", "0",
-                                kCoordParamLen, kLongitudeInputAttrs);
+                                 kCoordParamLen, kLongitudeInputAttrs);
+WiFiManagerParameter s_param_location_selector(
+    "<div class=\"location-tools\"><label>Airport location</label>"
+    "<input id=\"airport_code\" list=\"airport_list\" placeholder=\"ICAO or IATA code\">"
+    "<datalist id=\"airport_list\"></datalist>"
+    "<button type=\"button\" id=\"airport_default\">Location back to default</button>"
+    "</div><script>(function(){"
+    "var i=document.getElementById('airport_code'),l=document.getElementById('airport_list'),"
+    "d=document.getElementById('airport_default'),lat=document.getElementById('radar_lat'),"
+    "lon=document.getElementById('radar_lon');if(!i||!l||!lat||!lon)return;"
+    "var search=function(){if(i.value.length<1)return;fetch('/airports?q='+encodeURIComponent(i.value))"
+    ".then(function(r){return r.json()}).then(function(a){l.innerHTML='';a.forEach(function(x){"
+    "var o=document.createElement('option');o.value=x.icao;o.label=x.iata?x.iata+' - '+x.icao:x.icao;l.appendChild(o);});});};"
+    "i.addEventListener('input',search);i.addEventListener('change',function(){"
+    "fetch('/airport?code='+encodeURIComponent(i.value)).then(function(r){return r.json()})"
+    ".then(function(x){if(x.success){lat.value=x.lat;lon.value=x.lon;}});});"
+    "d.onclick=function(){fetch('/location-default',{method:'POST'}).then(function(r){return r.json()})"
+    ".then(function(x){if(x.success){i.value='';lat.value=x.lat;lon.value=x.lon;}});};"
+    "})();</script>");
 char s_miles_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_miles("use_miles", "Display distances in miles", "T", 2,
                                    s_miles_checkbox_attrs, WFM_LABEL_AFTER);
+char s_iata_checkbox_attrs[32] = "type=\"checkbox\"";
+WiFiManagerParameter s_param_use_iata(
+    "use_iata", "Show IATA airport codes", "T", 2,
+    s_iata_checkbox_attrs, WFM_LABEL_AFTER);
 
 char s_runways_checkbox_attrs[32] = "type=\"checkbox\"";
 WiFiManagerParameter s_param_runways("show_runways", "Show airport runways", "T", 2,
@@ -434,6 +516,9 @@ void refreshPortalParamDefaults() {
                        sizeof(s_miles_checkbox_attrs),
                        ui::radar::useMiles());
   s_param_miles.setValue("T", 2);
+  refreshCheckboxAttrs(s_iata_checkbox_attrs, sizeof(s_iata_checkbox_attrs),
+                       services::settings::useIataCodes());
+  s_param_use_iata.setValue("T", 2);
   refreshCheckboxAttrs(s_runways_checkbox_attrs,
                        sizeof(s_runways_checkbox_attrs),
                        ui::radar::showRunways());
@@ -560,7 +645,8 @@ void onPortalParamsSaved() {
     s_param_text_scale.getValue(),
     s_param_ota_password.getValue(),
     s_param_night_enabled.getValue(),
-    s_param_night_start.getValue(), s_param_night_end.getValue());
+    s_param_night_start.getValue(), s_param_night_end.getValue(),
+    s_param_use_iata.getValue());
   services::settings::saveColorsFromPortal(
       s_param_color_background.getValue(), s_param_color_grid.getValue(),
       s_param_color_label.getValue(), s_param_color_center.getValue(),
@@ -594,6 +680,7 @@ void savePortalParamsFromRequest(WebServer& web) {
   const String night_enabled = web.arg("night_enabled");
   const String night_start = web.arg("night_start");
   const String night_end = web.arg("night_end");
+  const String use_iata = web.arg("use_iata");
   const String color_background = web.arg("color_bg");
   const String color_grid = web.arg("color_grid");
   const String color_label = web.arg("color_label");
@@ -632,7 +719,8 @@ void savePortalParamsFromRequest(WebServer& web) {
     footer.c_str(), weather.c_str(), fahrenheit.c_str(),
     altitude_metres.c_str(), clock24.c_str(),
     text_scale.c_str(), ota_password.c_str(),
-    night_enabled.c_str(), night_start.c_str(), night_end.c_str());
+    night_enabled.c_str(), night_start.c_str(), night_end.c_str(),
+    use_iata.c_str());
   services::settings::saveColorsFromPortal(
       color_background.c_str(), color_grid.c_str(), color_label.c_str(),
       color_center.c_str(), color_aircraft.c_str(), color_track.c_str(),
@@ -685,6 +773,9 @@ void attachSettingsRoutes() {
   });
   s_wm.server->on("/display", HTTP_GET, handleDisplayPage);
   s_wm.server->on("/display.bmp", HTTP_GET, handleDisplayBmp);
+  s_wm.server->on("/airports", HTTP_GET, handleAirportSearch);
+  s_wm.server->on("/airport", HTTP_GET, handleAirportLookup);
+  s_wm.server->on("/location-default", HTTP_POST, handleLocationDefault);
   // Register before WiFiManager's built-in /paramsave handler so the custom
   // confirmation can redirect back to Setup.
   s_wm.server->on("/paramsave", HTTP_POST, handleSettingsSaved);
@@ -694,7 +785,9 @@ void attachPortalParams(WiFiManager& wm) {
   refreshPortalParamDefaults();
   wm.addParameter(&s_param_lat);
   wm.addParameter(&s_param_lon);
+  wm.addParameter(&s_param_location_selector);
   wm.addParameter(&s_param_miles);
+  wm.addParameter(&s_param_use_iata);
   wm.addParameter(&s_param_runways);
   wm.addParameter(&s_param_range_break);
   wm.addParameter(&s_param_range);
