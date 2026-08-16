@@ -18,3 +18,4 @@ include/config_local.h
 /tools/GetRoadsAndWaterForPlaneRadar/__pycache__/
 /tools/radar_simulator/__pycache__
 /scripts/__pycache__
+.kilo/kilo.jsonc

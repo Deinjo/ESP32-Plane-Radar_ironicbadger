@@ -24,7 +24,6 @@ constexpr int kConnectAttemptMs = 3000;
 constexpr unsigned long kAdsbRequestTimeoutMs = 5000;
 constexpr unsigned long kAdsbFailureBackoffMs = 30000;
 constexpr unsigned long kAdsbMaxFailureBackoffMs = 300000;
-constexpr uint8_t kAdsbMaxConsecutiveFailuresBeforeRestart = 10;
 constexpr size_t kEnrichmentCacheSize = 48;
 
 Aircraft s_aircraft[kMaxAircraft];
@@ -555,19 +554,12 @@ bool fetchUpdate(double center_lat, double center_lon, float fetch_radius_km) {
 
   const auto requestFailed = []() {
     s_last_adsb_failure_ms = millis();
-    if (s_adsb_failure_count < kAdsbMaxConsecutiveFailuresBeforeRestart) {
+    if (s_adsb_failure_count < 10) {
       ++s_adsb_failure_count;
     }
     Serial.printf("adsb: failure backoff=%lus count=%u\n",
                   adsbFailureBackoff() / 1000UL,
                   static_cast<unsigned>(s_adsb_failure_count));
-    if (s_adsb_failure_count >=
-        kAdsbMaxConsecutiveFailuresBeforeRestart) {
-      Serial.println("adsb: restarting after repeated core request failures");
-      Serial.flush();
-      delay(100);
-      ESP.restart();
-    }
     return false;
   };
   const unsigned long started_ms = millis();

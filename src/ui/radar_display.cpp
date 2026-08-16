@@ -62,6 +62,8 @@ int s_scale_label_h = 0;
 lgfx::LovyanGFX* s_draw = &tft;
 LGFX_Sprite s_frame(&tft);
 bool s_frame_ready = false;
+bool s_last_frame_complete = false;
+bool s_last_frame_used_sprite = false;
 bool s_night_mode_known = false;
 bool s_last_night_mode = false;
 
@@ -1176,6 +1178,8 @@ void renderFrame() {
   }
   s_frame.pushSprite(0, 0);
   tft.setTextDatum(textdatum_t::top_left);
+  s_last_frame_complete = true;
+  s_last_frame_used_sprite = true;
 }
 
 }  // namespace
@@ -1191,6 +1195,8 @@ void radarDisplayDraw() {
   s_last_night_mode = night;
   if (night) {
     tft.fillScreen(0x0000);
+    s_last_frame_complete = true;
+    s_last_frame_used_sprite = false;
     return;
   }
 
@@ -1208,6 +1214,8 @@ void radarDisplayDraw() {
   drawAircraft(); 
   drawFooter();
   tft.setTextDatum(textdatum_t::top_left);
+  s_last_frame_complete = true;
+  s_last_frame_used_sprite = false;
 }
 
 void radarDisplayRefreshAircraft() {
@@ -1268,8 +1276,10 @@ void radarDisplayWriteBmp(Print& output) {
   for (int y = kBmpHeight - 1; y >= 0; --y) {
     for (int x = 0; x < kBmpWidth; ++x) {
       uint16_t pixel = 0;
-      if (!black && s_frame_ready) {
+      if (!black && s_last_frame_used_sprite && s_frame_ready) {
         pixel = s_frame.readPixel(x, y);
+      } else if (!black && s_last_frame_complete) {
+        pixel = tft.readPixel(x, y);
       }
       uint8_t red = static_cast<uint8_t>((pixel >> 11) & 0x1F);
       const uint8_t green = static_cast<uint8_t>((pixel >> 5) & 0x3F);
@@ -1289,6 +1299,6 @@ void radarDisplayWriteBmp(Print& output) {
   }
 }
 
-bool radarDisplayFrameReady() { return s_frame_ready; }
+bool radarDisplayFrameReady() { return s_last_frame_complete; }
 
 }  // namespace ui
